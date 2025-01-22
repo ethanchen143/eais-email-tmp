@@ -35,7 +35,7 @@ MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1) && \
 echo "Chrome Major Version: $MAJOR_VERSION" && \
 CHROMEDRIVER_VERSION=$(curl -f -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$MAJOR_VERSION") || \
 (echo "Failed to get ChromeDriver version"; exit 1) && \
-echo "Downloading ChromeDriver $CHROMEDRIVER_VERSION" && 
+echo "Downloading ChromeDriver $CHROMEDRIVER_VERSION"
 
 RUN wget -q --tries=3 --retry-connrefused "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
 [ -f chromedriver_linux64.zip ] || (echo "Download failed"; exit 1) && \
