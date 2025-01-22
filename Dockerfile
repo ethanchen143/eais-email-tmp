@@ -28,16 +28,23 @@ RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd6
     apt-get install -yf --no-install-recommends && \
     rm google-chrome-stable_current_amd64.deb
 
-# Install ChromeDriver with version validation
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
-    CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1) && \
-    CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION") && \
-    echo "Installing ChromeDriver $CHROMEDRIVER_VERSION for Chrome $CHROME_VERSION" && \
-    wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
-    unzip chromedriver_linux64.zip && \
-    mv chromedriver /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm chromedriver_linux64.zip
+# Install ChromeDriver with validation
+RUN set -ex && \
+CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
+MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1) && \
+echo "Chrome Major Version: $MAJOR_VERSION" && \
+CHROMEDRIVER_VERSION=$(curl -f -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$MAJOR_VERSION") || \
+(echo "Failed to get ChromeDriver version"; exit 1) && \
+echo "Downloading ChromeDriver $CHROMEDRIVER_VERSION" && \
+wget -q --tries=3 --retry-connrefused "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
+[ -f chromedriver_linux64.zip ] || (echo "Download failed"; exit 1) && \
+unzip chromedriver_linux64.zip && \
+mv chromedriver /usr/local/bin/ && \
+chmod +x /usr/local/bin/chromedriver && \
+rm chromedriver_linux64.zip && \
+echo "Installed versions:" && \
+google-chrome --version && \
+chromedriver --version
 
 # Python setup
 WORKDIR /app
