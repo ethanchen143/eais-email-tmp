@@ -1,9 +1,14 @@
-# Render-compatible Dockerfile
+# Render-compatible Dockerfile with Vulkan fix
 FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y \
+# Add contrib and non-free repositories
+RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list
+
+# Install system dependencies with Vulkan support
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
     wget \
     gnupg \
     unzip \
@@ -25,6 +30,7 @@ RUN apt-get update && \
     libnspr4 \
     libnss3 \
     libpango-1.0-0 \
+    libvulkan1 \
     libx11-6 \
     libxcb1 \
     libxcomposite1 \
@@ -35,12 +41,13 @@ RUN apt-get update && \
     libxrandr2 \
     libxshmfence1 \
     xdg-utils \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    vulkan-utils \
+    mesa-vulkan-drivers \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome
+# Install Chrome with dependency fix
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
+    apt-get install -y --fix-broken ./google-chrome-stable_current_amd64.deb && \
     rm google-chrome-stable_current_amd64.deb
 
 # Install matching ChromeDriver
