@@ -1,222 +1,190 @@
 import streamlit as st
 import requests
 import pandas as pd
-import os
+import time
 
 # ---------------------------
-# Adjust these to match your FastAPI server
+# Configure API URL (point to your deployed FastAPI service)
 # ---------------------------
-API_URL = "https://eais-email-api.onrender.com"
+API_URL = "http://0.0.0.0:8000"  # Change to your deployed URL
 
 # ---------------------------
 # Utility functions
 # ---------------------------
-def save_uploaded_file(uploaded_file):
-    """
-    Save uploaded file to a temporary folder, returning the path.
-    """
-    if uploaded_file is not None:
-        # Make a 'tmp' folder if it doesn't exist
-        if not os.path.exists("leads"):
-            os.makedirs("leads")
-        file_path = os.path.join("leads", uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        return file_path
-    return None
-
-def create_campaign(api_base_url, campaign_name, leads_file_path, initial_email_template=""):
-    """
-    Hit the /add_campaign/ endpoint to create a new campaign on Instantly.
-    """
-    # We use multipart/form-data with Form fields for 'name', 'initial_email_template', and 'leads_file_path'.
-    # Because your FastAPI code expects them as Form(...) parameters.
+def create_campaign(api_url, campaign_name, uploaded_file, initial_email_template=""):
+    """Create new campaign with file upload through API"""
+    files = {
+        "file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")
+    }
     data = {
         "name": campaign_name,
-        "initial_email_template": initial_email_template,
-        "leads_file_path": leads_file_path
+        "initial_email_template": initial_email_template
     }
-    response = requests.post(f"{api_base_url}/add_campaign/", data=data)
-    return response
+    
+    try:
+        response = requests.post(
+            f"{api_url}/add_campaign/",
+            data=data,
+            files=files
+        )
+        return response
+    except requests.exceptions.ConnectionError:
+        return None
 
-def generate_emails(api_base_url, campaign_id):
-    """
-    Hit the /generate_emails/ endpoint to generate the actual emails
-    for each lead in the leads file.
-    """
-    data = {"campaign_id": campaign_id}
-    response = requests.post(f"{api_base_url}/generate_emails/", data=data)
-    return response
+def generate_emails(api_url, campaign_id):
+    """Trigger email generation through API"""
+    return requests.post(
+        f"{api_url}/generate_emails/",
+        data={"campaign_id": campaign_id}
+    )
 
-def send_emails(api_base_url, campaign_id):
-    """
-    Hit the /send_emails/ endpoint to actually send out all the emails.
-    """
-    data = {"campaign_id": campaign_id}
-    response = requests.post(f"{api_base_url}/send_emails/", data=data)
-    return response
+def get_emails(api_url, campaign_id):
+    """Retrieve generated emails from API"""
+    return requests.get(f"{api_url}/campaign/get_emails/{campaign_id}")
+
+def update_emails(api_url, campaign_id, emails):
+    """Update email content through API"""
+    return requests.post(
+        f"{api_url}/campaign/update_emails/{campaign_id}",
+        json=emails
+    )
+
+def send_emails(api_url, campaign_id):
+    """Trigger email sending through API"""
+    return requests.post(
+        f"{api_url}/send_emails/",
+        data={"campaign_id": campaign_id}
+    )
 
 # ---------------------------
-# Streamlit layout
+# Streamlit UI
 # ---------------------------
-st.set_page_config(page_title="EAIS Email API", layout="wide")
+st.set_page_config(page_title="EAIS Email Campaign Manager", layout="wide")
+st.title("Email Campaign Management")
 
-st.title("EAIS Email API")
-
-# We’ll use st.session_state to remember the campaign data across steps
+# Session state initialization
 if "campaign_id" not in st.session_state:
-    st.session_state["campaign_id"] = None
+    st.session_state.campaign_id = None
+if "emails_df" not in st.session_state:
+    st.session_state.emails_df = None
 
-if "campaign_info" not in st.session_state:
-    st.session_state["campaign_info"] = None
-
-# -------------
-# Sidebar for steps
-# -------------
-page = st.sidebar.radio("Select a step", [
-    "1. Upload & Create Campaign",
-    "2. Generate Emails",
-    "3. Preview / Edit Emails",
-    "4. Send Emails"
+# Sidebar navigation
+page = st.sidebar.radio("Navigation", [
+    "Create Campaign",
+    "Generate Emails",
+    "Edit Emails",
+    "Send Campaign"
 ])
 
-# -------------
-# STEP 1: Upload & Create Campaign
-# -------------
-if page == "1. Upload & Create Campaign":
-    st.header("1. Upload Leads & Create New Campaign")
-
-    # Campaign name
-    campaign_name = st.text_input("Campaign Name", value="My New Campaign")
-
-    # Initial email template (optional)
-    template_text = st.text_area("Initial Email Template (optional)", 
-                                 "Hi {{Full Name}},\n\nI noticed your profile...")
-
-    # Upload the CSV file
-    csv_file = st.file_uploader("Upload Leads CSV", type=["csv"])
+# ---------------------------
+# Page: Create Campaign
+# ---------------------------
+if page == "Create Campaign":
+    st.header("Create New Campaign")
     
-    if csv_file is not None:
-        # Just show a preview if you like:
-        st.subheader("Preview of uploaded file")
+    campaign_name = st.text_input("Campaign Name", "My Campaign")
+    email_template = st.text_area("Base Email Template", "Hi {{full_name}},\n\n...")
+    uploaded_file = st.file_uploader("Upload Leads CSV", type=["csv"])
+    
+    if uploaded_file:
         try:
-            df_preview = pd.read_csv(csv_file)
-            st.dataframe(df_preview.head(10))
+            df = pd.read_csv(uploaded_file)
+            st.subheader("Leads Preview")
+            st.dataframe(df.head(10))
         except Exception as e:
-            st.error(f"Could not read CSV: {e}")
-
-    if st.button("Create Campaign"):
-        if not campaign_name.strip():
-            st.error("Please enter a campaign name.")
-        elif not csv_file:
-            st.error("Please upload a leads CSV.")
-        else:
-            # Save the uploaded leads file locally
-            saved_path = save_uploaded_file(csv_file)
-
-            # Create the campaign by hitting your FastAPI endpoint
-            resp = create_campaign(
-                api_base_url=API_BASE_URL,
-                campaign_name=campaign_name,
-                leads_file_path=saved_path,  # pass local path
-                initial_email_template=template_text
+            st.error(f"Error reading CSV: {str(e)}")
+    
+    if st.button("Create Campaign") and uploaded_file:
+        with st.spinner("Creating campaign..."):
+            response = create_campaign(
+                API_URL,
+                campaign_name,
+                uploaded_file,
+                email_template
             )
             
-            if resp.status_code == 200:
-                resp_json = resp.json()
-                if "new_campaign_id" in resp_json:
-                    new_campaign_id = resp_json["new_campaign_id"]
-                    st.session_state["campaign_id"] = new_campaign_id
-                    st.session_state["campaign_info"] = resp_json.get("campaign")
-                    st.success(
-                        f"Campaign '{campaign_name}' created! Campaign ID: {new_campaign_id}"
-                    )
-                else:
-                    st.error(f"Error creating campaign: {resp_json}")
-            else:
-                st.error(f"API error: {resp.status_code} - {resp.text}")
+        if response and response.status_code == 200:
+            data = response.json()
+            st.session_state.campaign_id = data["new_campaign_id"]
+            st.success(f"Campaign created! ID: {st.session_state.campaign_id}")
+            st.json(data["campaign"])
+        else:
+            error_msg = response.text if response else "API connection failed"
+            st.error(f"Failed to create campaign: {error_msg}")
 
-# -------------
-# STEP 2: Generate Emails
-# -------------
-elif page == "2. Generate Emails":
-    st.header("2. Generate Emails for your Campaign")
+# ---------------------------
+# Page: Generate & Edit Emails
+# ---------------------------
+elif page == "Generate Emails":
+    st.header("Generate Emails")
     
-    campaign_id = st.session_state.get("campaign_id", None)
+    campaign_id = st.session_state.campaign_id
     if not campaign_id:
         st.warning("No campaign found in session. Please create a campaign first.")
     else:
         st.info(f"Working with campaign ID: {campaign_id}")
 
         if st.button("Generate Emails Now"):
-            resp = generate_emails(API_BASE_URL, campaign_id)
+            resp = generate_emails(API_URL, campaign_id)
             if resp.status_code == 200:
-                resp_json = resp.json()
-                if resp_json.get("status") == True:
-                    st.success("Emails generated successfully!")
+                max_retries = 30
+                for attempt in range(max_retries):
+                    emails_response = get_emails(API_URL, st.session_state.campaign_id)
+                    if emails_response.status_code == 200:
+                        st.session_state.emails_df = pd.DataFrame(emails_response.json()["emails"])
+                        st.success("Emails generated successfully!")
+                        break
+                    # Wait before retrying
+                    time.sleep(3)  # 3 seconds between attempts
                 else:
-                    st.error("Failed to generate emails.")
-                    st.write(resp_json)
+                    st.error("Failed to retrieve emails after multiple attempts")
             else:
                 st.error(f"API error: {resp.status_code} - {resp.text}")
 
-# -------------
-# STEP 3: Preview / Edit Emails
-# -------------
-elif page == "3. Preview / Edit Emails":
-    st.header("3. Preview & Edit Generated Emails")
-
-    campaign_data = st.session_state.get("campaign_info", {})
-
-    if not campaign_data:
-        st.warning("No campaign_info in session. Create campaign & generate emails first.")
-    else:
-        campaign_id = campaign_data.get("campaign_id", "")
-        if not campaign_id:
-            st.warning("No campaign_id found in session. Please go back and generate emails first.")
-        else:
-            # Construct the file path
-            generated_email_path = f"emails/generated_emails_{campaign_id}.csv"
-
-            if not os.path.exists(generated_email_path):
-                st.error(f"Generated email file not found at: {generated_email_path}")
-            else:
-                # Load and display the DataFrame
-                df_emails = pd.read_csv(generated_email_path)
-                st.subheader("Edit Generated Emails")
-                st.write("Modify the `email_pitch` or other fields as needed:")
-
-                # Allow editing of the DataFrame
-                edited_df = st.data_editor(df_emails)
-
-                # Save edits
-                if st.button("Save Edits"):
-                    try:
-                        edited_df.to_csv(generated_email_path, index=False)
-                        st.success("Edits saved successfully!")
-                    except Exception as e:
-                        st.error(f"Failed to save edits: {e}")
-
-# -------------
-# STEP 4: Send Emails
-# -------------
-elif page == "4. Send Emails":
-    st.header("4. Send Emails")
+elif page == "Edit Emails":
+    st.header("Edit Emails")
 
     campaign_id = st.session_state.get("campaign_id", None)
     if not campaign_id:
         st.warning("No campaign found in session. Please create a campaign first.")
-    else:
-        st.info(f"Working with campaign ID: {campaign_id}")
+        st.stop()
 
-        if st.button("Send Emails Now"):
-            resp = send_emails(API_BASE_URL, campaign_id)
-            if resp.status_code == 200:
-                resp_json = resp.json()
-                if resp_json.get("status") == True:
-                    st.success("Emails sent successfully!")
-                else:
-                    st.error("Failed to send emails.")
-                    st.write(resp_json)
+    st.info(f"Working with campaign ID: {campaign_id}")
+
+    if st.button("Fetch Emails"):
+        resp = get_emails(API_URL, campaign_id)
+        if resp.status_code == 200:
+            st.session_state.emails_df = pd.DataFrame(resp.json()["emails"])
+            st.success("Emails fetched successfully!")
+        else:
+            st.error(f"API error: {resp.status_code} - {resp.text}")
+
+    # Display and edit
+    if "emails_df" in st.session_state and not st.session_state.emails_df.empty:
+        edited_emails = st.data_editor(st.session_state.emails_df)
+        if st.button("Save Changes"):
+            update_resp = update_emails(API_URL, campaign_id, edited_emails.to_dict("records"))
+            if update_resp.status_code == 200:
+                st.success("Emails updated successfully!")
             else:
-                st.error(f"API error: {resp.status_code} - {resp.text}")
+                st.error(f"Update error: {update_resp.text}")
+
+# ---------------------------
+# Page: Send Campaign
+# ---------------------------
+elif page == "Send Campaign":
+    st.header("Send Campaign Emails")
+    
+    if not st.session_state.campaign_id:
+        st.warning("Please create a campaign first")
+        st.stop()
+    
+    if st.button("Confirm & Send All Emails"):
+        with st.spinner("Sending emails..."):
+            response = send_emails(API_URL, st.session_state.campaign_id)
+            
+        if response.status_code == 200:
+            st.success("Emails sent successfully!")
+            st.balloons()
+        else:
+            st.error(f"Failed to send emails: {response.text}")

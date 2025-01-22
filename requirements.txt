@@ -8,3 +8,5 @@ selenium>=4.0.0
 webdriver-manager>=3.0.0
 tiktoken>=0.3.0
 requests>=2.26.0
+python-multipart
+aiofiles

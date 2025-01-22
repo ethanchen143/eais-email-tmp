@@ -1,6 +1,6 @@
 import json
 import requests
-from fastapi import FastAPI, Form, HTTPException
+from fastapi import FastAPI, Form, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from email_writer import EmailWriter
 import pandas as pd
@@ -11,6 +11,8 @@ import os
 from add_campaign import create_campaign
 from start_campaign import start_campaign
 from dotenv import load_dotenv
+import aiofiles
+load_dotenv()
 
 VERSION = "1.0.0"
 
@@ -20,7 +22,6 @@ app = FastAPI()
 email_writer_module = EmailWriter()
 
 
-load_dotenv()
 INS_API_KEY = os.environ.get("INSTANTLY_API_KEY")
 
 # Configure CORS
@@ -59,7 +60,7 @@ async def root():
 async def add_campaign(
     name: str = Form(...),
     initial_email_template: str = Form(""),  
-    leads_file_path: str = Form("")
+    file: UploadFile = File(...)
 ):
     # Generate a random suffix to avoid duplicate names
     random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
@@ -70,16 +71,29 @@ async def add_campaign(
     create_campaign(unique_name)
     # Get final campaign IDs
     final_campaign_ids = {campaign["id"] for campaign in get_campaign_list(INS_API_KEY)}
+        
     # Determine the new campaign ID
     new_campaign_ids = final_campaign_ids - initial_campaign_ids
     if new_campaign_ids:
         new_campaign_id = new_campaign_ids.pop()
+
+        os.makedirs("leads", exist_ok=True)
+        # Save uploaded file
+        file_path = os.path.join("leads", f"{new_campaign_id}.csv")
+        try:
+            # Async write file
+            async with aiofiles.open(file_path, "wb") as f:
+                content = await file.read()
+                await f.write(content)
+        except Exception as e:
+            return {"status": f"File upload failed: {str(e)}"}
+        
         # Prepare campaign data
         campaign_data = {
             "campaign_name": unique_name,
             "campaign_id": new_campaign_id,
             "email_template": initial_email_template,
-            "leads_file_path": leads_file_path,
+            "leads_file_path": file_path,
             "intents": [],  
             "responses": [], 
             "status": "setup", # NEXT STAGE IS emailready, emailsent
@@ -148,9 +162,7 @@ async def generate_emails(campaign_id: str = Form(...),):
     else:
         return {"status": "Failed to generate emails"}
 
-import os
-
-@app.get("/campaign/get_emails/")
+@app.get("/campaign/get_emails/{campaign_id}")
 def get_emails(campaign_id: str):
     # Locate the generated emails file
     generated_email_path = f"emails/generated_emails_{campaign_id}.csv"
@@ -161,7 +173,7 @@ def get_emails(campaign_id: str):
     df_emails = pd.read_csv(generated_email_path)
     return {"emails": df_emails.to_dict(orient="records")}
 
-@app.post("/campaign/update_emails/")
+@app.post("/campaign/update_emails/{campaign_id}")
 def update_emails(campaign_id: str, emails: list[dict]):
     # Locate the generated emails file
     generated_email_path = f"emails/generated_emails_{campaign_id}.csv"
@@ -199,6 +211,7 @@ def add_leads_to_campaign(api_key, campaign_id, leads_file_path, batch_size=500)
     url = "https://api.instantly.ai/api/v1/lead/add"
     headers = {'Content-Type': 'application/json'}
     total_leads = len(leads)
+    print(len(leads))
     total_batches = (total_leads // batch_size) + (1 if total_leads % batch_size != 0 else 0)
     for i in range(total_batches):
         batch_start = i * batch_size

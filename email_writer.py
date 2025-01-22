@@ -12,7 +12,6 @@ GPT_URL = os.environ.get("GPT_URL")
 
 class GptOperations:
     max_tokens = 2000
-
     def __init__(self, model="gpt-4o-mini"):
         self.model = model
         self.encoding = tiktoken.encoding_for_model(self.model)
@@ -45,11 +44,11 @@ class GptOperations:
         
         model = model if model else self.model
         
-        url = deployment['endpoint']
-        api_key = deployment['api_key']
+        url = GPT_URL
+        api_key = GPT_API_KEY
         headers = {
             "Content-Type": "application/json",
-            "Authorization": api_key
+            "Authorization": f"Bearer {api_key}"
         }
         data = {
             "model": model,
