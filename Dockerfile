@@ -7,21 +7,25 @@ RUN apt-get update && \
     libvulkan1 libgbm1 libasound2 libatk-bridge2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome
-RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    dpkg -i ./google-chrome-stable_current_amd64.deb || apt-get install -yf && \
-    rm google-chrome-stable_current_amd64.deb
+# Add Google's signing key and Chrome's repository
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list
 
-# Install ChromeDriver for Chrome 132+
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
-    BUILD_NUMBER=$(echo $CHROME_VERSION | cut -d'.' -f1) && \
-    CD_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone.json" | \
-    jq -r ".milestones.\"$BUILD_NUMBER\".version") && \
-    wget -q "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CD_VERSION}/linux64/chromedriver-linux64.zip" && \
-    unzip chromedriver-linux64.zip && \
-    mv chromedriver-linux64/chromedriver /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm -rf chromedriver-linux64*
+# Install Google Chrome
+RUN apt-get update && \
+    apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Get Chrome's major version
+RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+') && \
+    CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1)
+
+# Download and install the matching ChromeDriver version
+RUN CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION) && \
+    wget -q --continue -P /usr/local/bin/ "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
+    unzip /usr/local/bin/chromedriver_linux64.zip -d /usr/local/bin/ && \
+    rm /usr/local/bin/chromedriver_linux64.zip && \
+    chmod +x /usr/local/bin/chromedriver
 
 # Python setup
 COPY requirements.txt .
