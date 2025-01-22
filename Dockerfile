@@ -1,31 +1,26 @@
 FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
 # System dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    wget curl unzip jq xvfb \
-    libvulkan1 libgbm1 libasound2 libatk-bridge2.0-0 \
+RUN apt-get update -qq -y && \
+    apt-get install -y \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libgtk-4-1 \
+        libnss3 \
+        xdg-utils \
+        wget && \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Google's signing key and Chrome's repository
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list
-
-# Install Google Chrome
-RUN apt-get update && \
-    apt-get install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
-
-# Get Chrome's major version
-RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+') && \
-    CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1)
-
-# Download and install the matching ChromeDriver version
-RUN CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_MAJOR_VERSION) && \
-    wget -q --continue -P /usr/local/bin/ "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
-    unzip /usr/local/bin/chromedriver_linux64.zip -d /usr/local/bin/ && \
-    rm /usr/local/bin/chromedriver_linux64.zip && \
-    chmod +x /usr/local/bin/chromedriver
+# Install Chrome
+RUN wget -q -O chrome-linux64.zip https://bit.ly/chrome-linux64-121-0-6167-85 && \
+    unzip chrome-linux64.zip && \
+    rm chrome-linux64.zip && \
+    mv chrome-linux64 /opt/chrome/ && \
+    ln -s /opt/chrome/chrome /usr/local/bin/ && \
+    wget -q -O chromedriver-linux64.zip https://bit.ly/chromedriver-linux64-121-0-6167-85 && \
+    unzip -j chromedriver-linux64.zip chromedriver-linux64/chromedriver && \
+    rm chromedriver-linux64.zip && \
+    mv chromedriver /usr/local/bin/
 
 # Python setup
 COPY requirements.txt .
