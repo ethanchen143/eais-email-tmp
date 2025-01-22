@@ -2,9 +2,10 @@
 FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
 # Add contrib and non-free repositories
-RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
-    echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list && \
-    echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list
+RUN rm -f /etc/apt/sources.list.d/debian.sources && \
+echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
+echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list && \
+echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list
 
 # Install system dependencies with Vulkan support
 RUN apt-get update -qq && \
@@ -41,9 +42,11 @@ RUN apt-get update -qq && \
     libxrandr2 \
     libxshmfence1 \
     xdg-utils \
-    vulkan-utils \
+    vulkan-tools \  
     mesa-vulkan-drivers \
-    && rm -rf /var/lib/apt/lists/*
+    libvulkan-dev \  
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Chrome with dependency fix
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
