@@ -2,33 +2,28 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 import sys
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 USERNAME = os.environ.get("INSTANTLY_USERNAME")
 PASSWORD = os.environ.get("INSTANTLY_PASSWORD")
 URL = "https://app.instantly.ai/"
 
 def create_campaign(campaign_name):
-    # Configure Chrome for Render
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
-    # Render-specific Chrome path
-    if os.getenv('RENDER'):
-        chrome_options.binary_location = "/usr/bin/google-chrome"
-        service = Service(executable_path="/usr/bin/chromedriver")
-    else:  # Local development
-        service = Service(ChromeDriverManager().install())
-
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    # Connect to Selenium container
+    driver = webdriver.Remote(
+        command_executor='http://selenium:4444/wd/hub',
+        options=chrome_options
+    )
 
     wait = WebDriverWait(driver, 10)
 

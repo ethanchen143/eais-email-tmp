@@ -1,32 +1,30 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 import time
 import sys
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 USERNAME = os.environ.get("INSTANTLY_USERNAME")
 PASSWORD = os.environ.get("INSTANTLY_PASSWORD")
 URL = "https://app.instantly.ai/"
 
 def start_campaign(campaign_id):
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
+    # Connect to Selenium container
+    driver = webdriver.Remote(
+        command_executor='http://selenium:4444/wd/hub',
+        options=chrome_options
     )
-    
-    # Set up WebDriver
-    driver = webdriver.Chrome(options=options)
+
     wait = WebDriverWait(driver, 10)
 
     try:

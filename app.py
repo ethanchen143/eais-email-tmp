@@ -3,10 +3,8 @@ import requests
 import pandas as pd
 import time
 
-# ---------------------------
-# Configure API URL (point to your deployed FastAPI service)
-# ---------------------------
 API_URL = "https://eais-email-tmp.onrender.com"
+# API_URL = "http://localhost:8000"
 
 # ---------------------------
 # Utility functions

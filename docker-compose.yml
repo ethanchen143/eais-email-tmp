@@ -1,0 +1,17 @@
+services:
+  selenium:
+    image: seleniarm/standalone-chromium:latest
+    ports:
+      - "4444:4444"
+      - "7900:7900"  # For VNC viewing
+    shm_size: 2gb
+
+  app:
+    build: .
+    ports:
+      - "8000:8000" 
+    environment:
+      - INSTANTLY_USERNAME=${INSTANTLY_USERNAME}
+      - INSTANTLY_PASSWORD=${INSTANTLY_PASSWORD}
+    depends_on:
+      - selenium
