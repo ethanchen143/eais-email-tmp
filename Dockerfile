@@ -8,8 +8,7 @@ RUN apt-get update -qq -y && \
         libgtk-4-1 \
         libnss3 \
         xdg-utils \
-        wget && \
-    && rm -rf /var/lib/apt/lists/*
+        wget
 
 # Install Chrome
 RUN wget -q -O chrome-linux64.zip https://bit.ly/chrome-linux64-121-0-6167-85 && \
