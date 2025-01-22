@@ -10,8 +10,7 @@ services:
     build: .
     ports:
       - "8000:8000" 
-    environment:
-      - INSTANTLY_USERNAME=${INSTANTLY_USERNAME}
-      - INSTANTLY_PASSWORD=${INSTANTLY_PASSWORD}
+    env_file:
+      - .env
     depends_on:
       - selenium
