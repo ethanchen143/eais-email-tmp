@@ -4,10 +4,14 @@ services:
     name: eais-email-api
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:10000
+    startCommand: gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
+    plan: free 
+    instanceType: free  
 
   - type: web
     name: eais-email-dashboard
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port 10000
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    plan: free  
+    instanceType: free 
