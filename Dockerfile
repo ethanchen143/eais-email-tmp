@@ -8,18 +8,23 @@ RUN apt-get update -qq -y && \
         libgtk-4-1 \
         libnss3 \
         xdg-utils \
-        wget
+        wget \
+        unzip
 
-# Install Chrome
-RUN wget -q -O chrome-linux64.zip https://bit.ly/chrome-linux64-121-0-6167-85 && \
-    unzip chrome-linux64.zip && \
-    rm chrome-linux64.zip && \
-    mv chrome-linux64 /opt/chrome/ && \
-    ln -s /opt/chrome/chrome /usr/local/bin/ && \
-    wget -q -O chromedriver-linux64.zip https://bit.ly/chromedriver-linux64-121-0-6167-85 && \
-    unzip -j chromedriver-linux64.zip chromedriver-linux64/chromedriver && \
-    rm chromedriver-linux64.zip && \
-    mv chromedriver /usr/local/bin/
+# Install Chrome for Testing
+RUN wget -q -O /tmp/chrome-linux64.zip https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/121.0.6167.0/linux64/chrome-linux64.zip && \
+    unzip /tmp/chrome-linux64.zip -d /opt/ && \
+    mv /opt/chrome-linux64 /opt/chrome && \
+    ln -s /opt/chrome/chrome /usr/local/bin/chrome && \
+    rm /tmp/chrome-linux64.zip
+
+# Install ChromeDriver
+RUN wget -q -O /tmp/chromedriver-linux64.zip https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/121.0.6167.0/linux64/chromedriver-linux64.zip && \
+    unzip /tmp/chromedriver-linux64.zip -d /opt/ && \
+    mv /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf /opt/chromedriver-linux64 && \
+    rm /tmp/chromedriver-linux64.zip
 
 # Python setup
 COPY requirements.txt .
