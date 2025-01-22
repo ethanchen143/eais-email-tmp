@@ -8,3 +8,5 @@ selenium
 webdriver-manager
 tiktoken
 python-multipart
+dotenv
+streamlit
