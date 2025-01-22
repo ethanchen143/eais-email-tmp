@@ -1,56 +1,31 @@
-# Render-compatible Dockerfile with Vulkan fix
+# Final working Dockerfile for Render
 FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
-# Add contrib and non-free repositories
+# Clean up repository configurations
 RUN rm -f /etc/apt/sources.list.d/debian.sources && \
-echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
-echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list && \
-echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list
+    echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list
 
-# Install system dependencies with Vulkan support
+# Install system dependencies
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
-    wget \
-    gnupg \
-    unzip \
-    xvfb \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libc6 \
-    libcairo2 \
-    libcups2 \
-    libcurl4 \
-    libdbus-1-3 \
-    libdrm2 \
-    libexpat1 \
-    libgbm1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libvulkan1 \
-    libx11-6 \
-    libxcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    libxshmfence1 \
-    xdg-utils \
-    vulkan-tools \  
-    mesa-vulkan-drivers \
-    libvulkan-dev \  
+    wget gnupg unzip xvfb \
+    fonts-liberation libasound2 libatk-bridge2.0-0 \
+    libatk1.0-0 libc6 libcairo2 libcups2 libcurl4 \
+    libdbus-1-3 libdrm2 libexpat1 libgbm1 libglib2.0-0 \
+    libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libvulkan1 \
+    libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
+    libxfixes3 libxkbcommon0 libxrandr2 libxshmfence1 \
+    xdg-utils vulkan-tools mesa-vulkan-drivers \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Chrome with dependency fix
+# Install Chrome with error suppression
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get install -y --fix-broken ./google-chrome-stable_current_amd64.deb && \
+    DEBIAN_FRONTEND=noninteractive \
+    dpkg --install --force-all ./google-chrome-stable_current_amd64.deb || true && \
+    apt-get install -yf --no-install-recommends && \
     rm google-chrome-stable_current_amd64.deb
 
 # Install matching ChromeDriver
@@ -62,6 +37,7 @@ RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
     rm chromedriver_linux64.zip
 
 # Python setup
+# WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
