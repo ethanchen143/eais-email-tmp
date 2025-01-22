@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+gunicorn
+requests
+pandas
+python-dotenv
+selenium
+webdriver-manager
+tiktoken
+python-multipart

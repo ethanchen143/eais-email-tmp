@@ -1,0 +1,7 @@
+# Secrets
+.env
+*.cfg
+chromedriver
+/emails/
+/leads/
+campaigns.json
