@@ -13,18 +13,17 @@ USERNAME = os.environ.get("INSTANTLY_USERNAME")
 PASSWORD = os.environ.get("INSTANTLY_PASSWORD")
 URL = "https://app.instantly.ai/"
 
-def create_campaign(campaign_name):
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    
-    # Connect to Selenium container
-    driver = webdriver.Remote(
-        command_executor='http://selenium:4444/wd/hub',
-        options=chrome_options
-    )
+def get_chrome_options():
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    return options
 
+def create_campaign(campaign_name):
+    driver = webdriver.Chrome(options=get_chrome_options())
     wait = WebDriverWait(driver, 10)
 
     try:

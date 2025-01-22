@@ -1,16 +1,25 @@
-services:
-  selenium:
-    image: seleniarm/standalone-chromium:latest
-    ports:
-      - "4444:4444"
-      - "7900:7900"  # For VNC viewing
-    shm_size: 2gb
+# services:
+#   selenium:
+#     image: seleniarm/standalone-chromium:latest
+#     ports:
+#       - "4444:4444"
+#       - "7900:7900"
+#     shm_size: 2gb
+#     environment:
+#       - SE_NODE_MAX_SESSIONS=1
+#       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+#     healthcheck:
+#       test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
 
-  app:
-    build: .
-    ports:
-      - "8000:8000" 
-    env_file:
-      - .env
-    depends_on:
-      - selenium
+#   app:
+#     build: .
+#     ports:
+#       - "8000:8000"
+#     env_file:
+#       - .env
+#     depends_on:
+#       selenium:
+#         condition: service_healthy

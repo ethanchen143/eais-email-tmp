@@ -21,7 +21,7 @@ def start_campaign(campaign_id):
     
     # Connect to Selenium container
     driver = webdriver.Remote(
-        command_executor='http://selenium:4444/wd/hub',
+        command_executor=os.environ.get("SELENIUM_URL"),
         options=chrome_options
     )
 
