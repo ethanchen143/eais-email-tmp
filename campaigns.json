@@ -1,2 +1,22 @@
 [
+    {
+        "campaign_name": "My Campaign_1lVrY",
+        "campaign_id": "7dda5df6-c66d-4a4d-bd51-8a9701c6c23b",
+        "email_template": "Hi {{full_name}},\n\n...",
+        "leads_file_path": "leads/7dda5df6-c66d-4a4d-bd51-8a9701c6c23b.csv",
+        "intents": [],
+        "responses": [],
+        "status": "setup",
+        "generated_email_path": ""
+    },
+    {
+        "campaign_name": "new campaign_K5lH4",
+        "campaign_id": "b9e45dca-e977-4484-80ea-58b73f4f2723",
+        "email_template": "Hi {{full_name}},\n\n...",
+        "leads_file_path": "leads/b9e45dca-e977-4484-80ea-58b73f4f2723.csv",
+        "intents": [],
+        "responses": [],
+        "status": "emailsent",
+        "generated_email_path": "emails/generated_emails_b9e45dca-e977-4484-80ea-58b73f4f2723.csv"
+    }
 ]
