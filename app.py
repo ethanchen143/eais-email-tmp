@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import time
 
-API_URL = "https://eais-email-tmp.onrender.com"
+API_URL = "https://eais-email-tmp-hrv7.onrender.com"
 # API_URL = "http://localhost:8000"
 
 # ---------------------------
