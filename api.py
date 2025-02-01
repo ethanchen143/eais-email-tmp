@@ -8,15 +8,11 @@ import random
 import string
 from typing import List
 import os
-from add_campaign import create_campaign
-from start_campaign import start_campaign
 from dotenv import load_dotenv
 import aiofiles
 load_dotenv()
 
 VERSION = "1.0.0"
-
-# gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 api:app
 
 app = FastAPI()
 email_writer_module = EmailWriter()
@@ -41,106 +37,105 @@ def save_campaigns(campaigns):
     with open("campaigns.json", "w") as file:
         json.dump(campaigns, file, indent=4)
 
-def get_campaign_list(api_key):
-    url = (
-      f"https://api.instantly.ai/api/v1/campaign/list?"
-      f"api_key={api_key}"
-    )
+def fetch_sending_accounts():
+    url = f"https://api.instantly.ai/api/v2/accounts?limit=10&status=1"
     headers = {
-        'Content-Type': 'application/json'
+        'Authorization': f'Bearer {INS_API_KEY}',
     }
     response = requests.get(url, headers=headers)
+    return response.json()
+
+# create and set up campaign
+def create_campaign(campaign_name, email_title):
+    url = "https://api.instantly.ai/api/v2/campaigns"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    # get all email accounts
+    email_accounts = [item['email'] for item in fetch_sending_accounts()['items']]
+    data = {
+        "name": campaign_name,
+        'sequences': [{'steps': [{'type': 'email', 'delay': 2, 'variants': [{'subject': f'{email_title}', 'body': '{{personalization}}\n\n{{sendingAccountFirstName}}'}]}]}],
+        "email_list": email_accounts,
+        "campaign_schedule": {
+            "schedules": [
+                {
+                "name": "My Schedule",
+                "timing": {
+                    "from": "09:00",
+                    "to": "21:00"
+                },
+                "days": {
+                    0: True, 1: True, 2: True, 3: True, 4: True, 5: False, 6: False
+                },
+                "timezone": "America/Chicago",
+                }
+            ]
+        }
+    }
+    response = requests.post(url, headers=headers, json=data)
     return response.json()
 
 @app.get("/")
 async def root():
     return {"Version": VERSION}
 
+
+""" add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
 @app.post("/add_campaign/")
 async def add_campaign(
     name: str = Form(...),
-    initial_email_template: str = Form(""),  
+    initial_email_template: str = Form(""),
+    email_title: str = Form(""),
     file: UploadFile = File(...)
 ):
     # Generate a random suffix to avoid duplicate names
     random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
     unique_name = f"{name}_{random_suffix}"  # Append random suffix to the name
-    # Get initial campaign IDs
-    initial_campaign_ids = {campaign["id"] for campaign in get_campaign_list(INS_API_KEY)}
-    # Create a new campaign
-    create_campaign(unique_name)
-    # Get final campaign IDs
-    final_campaign_ids = {campaign["id"] for campaign in get_campaign_list(INS_API_KEY)}
-        
-    # Determine the new campaign ID
-    new_campaign_ids = final_campaign_ids - initial_campaign_ids
-    if new_campaign_ids:
-        new_campaign_id = new_campaign_ids.pop()
 
-        os.makedirs("leads", exist_ok=True)
-        # Save uploaded file
-        file_path = os.path.join("leads", f"{new_campaign_id}.csv")
-        try:
-            # Async write file
-            async with aiofiles.open(file_path, "wb") as f:
-                content = await file.read()
-                await f.write(content)
-        except Exception as e:
-            return {"status": f"File upload failed: {str(e)}"}
-        
-        # Prepare campaign data
-        campaign_data = {
-            "campaign_name": unique_name,
-            "campaign_id": new_campaign_id,
-            "email_template": initial_email_template,
-            "leads_file_path": file_path,
-            "intents": [],  
-            "responses": [], 
-            "status": "setup", # NEXT STAGE IS emailready, emailsent
-            "generated_email_path": ""
-        }
-        # Write to JSON file
-        try:
-            with open("campaigns.json", "r") as file:
-                if file.read().strip() == "":
-                    existing_data = []
-                else:
-                    file.seek(0)
-                    existing_data = json.load(file)
-        except FileNotFoundError:
-            existing_data = []
-        existing_data.append(campaign_data)
-        with open("campaigns.json", "w") as file:
-            json.dump(existing_data, file, indent=4)
-        return {"new_campaign_id": new_campaign_id, "status": "Campaign created successfully", "campaign": campaign_data}
-    else:
-        return {"status": "Failed to create new campaign", "name": unique_name}
-            
-def fetch_sending_accounts(api_key):
-    url = f"https://api.instantly.ai/api/v1/account/list?api_key={api_key}&limit=25&skip=0"
-    headers = {'Content-Type': 'application/json'}
-    payload = {}
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
-    if response.status_code == 200:
-        accounts = response.json().get("accounts", [])
-        return accounts
-    else:
-        raise Exception(f"Failed to fetch accounts: {response.status_code} - {response.text}")
+    if not email_title:
+        email_title = "Hello {{firstName}}!"
+    new_campaign_id = create_campaign(unique_name, email_title)['id']
 
-def add_accounts_to_campaign(api_key, campaign_id, accounts):
-    url = "https://api.instantly.ai/api/v1/campaign/add/account"
-    headers = {'Content-Type': 'application/json'}
-    for account in accounts:
-        payload = json.dumps({
-            "api_key": api_key,
-            "campaign_id": campaign_id,
-            "email": account["email"]
-        })
-        response = requests.request("POST", url, headers=headers, data=payload)
-        if response.status_code == 200:
-            print(f"Successfully added account {account['email']} to campaign.")
-        else:
-            print(f"Failed to add account {account['email']} - {response.status_code} - {response.text}")
+    os.makedirs("leads", exist_ok=True)
+    # Save uploaded file
+    file_path = os.path.join("leads", f"{new_campaign_id}.csv")
+    try:
+        # Async write file
+        async with aiofiles.open(file_path, "wb") as f:
+            content = await file.read()
+            await f.write(content)
+    except Exception as e:
+        return {"status": f"File upload failed: {str(e)}"}
+
+    # Prepare campaign data
+    campaign_data = {
+        "campaign_name": unique_name,
+        "campaign_id": new_campaign_id,
+        "email_template": initial_email_template,
+        "leads_file_path": file_path,
+        "intents": [],  
+        "responses": [], 
+        "status": "setup", # NEXT STAGE IS emailready, emailsent
+        "generated_email_path": ""
+    }
+    # Write to JSON file
+    try:
+        with open("campaigns.json", "r") as file:
+            if file.read().strip() == "":
+                existing_data = []
+            else:
+                file.seek(0)
+                existing_data = json.load(file)
+    except FileNotFoundError:
+        existing_data = []
+    existing_data.append(campaign_data)
+
+    with open("campaigns.json", "w") as file:
+        json.dump(existing_data, file, indent=4)
+
+    return {"new_campaign_id": new_campaign_id, "status": "Campaign created successfully", "campaign": campaign_data}
 
 @app.post("/generate_emails/")
 async def generate_emails(campaign_id: str = Form(...),):
@@ -156,7 +151,6 @@ async def generate_emails(campaign_id: str = Form(...),):
         generated_email_path = email_writer_module.generate_email(leads_file_path, campaign_id, email_template)
         campaign_data["generated_email_path"] = generated_email_path
         campaign_data["status"] = "emailready"
-
         save_campaigns(campaigns)
         return {"status": True}
     else:
@@ -191,55 +185,38 @@ def update_emails(campaign_id: str, emails: list[dict]):
 
     return {"status": "Success", "message": "Emails updated successfully."}
 
-def add_leads_to_campaign(api_key, campaign_id, leads_file_path, batch_size=500):
-    # Load leads from CSV
-    df = pd.read_csv(leads_file_path)
-    df.fillna("", inplace=True)
+def start_campaign(id):
+    url = f"https://api.instantly.ai/api/v2/campaigns/{id}/activate"
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    response = requests.post(url, headers=headers)
+    return response.json()
 
-    # Map leads to the API format
-    def map_lead(lead):
-        full_name = lead.get("full_name", "").split(" ", 1)
-        return {
-            "email": lead.get("email", ""),
-            "custom_variables": {
-                "generated_email":lead.get("email_pitch",""),
-            }
+def add_leads_to_campaign(campaign_id):
+    df = pd.read_csv(f'./emails/generated_emails_{campaign_id}.csv')
+    url = "https://api.instantly.ai/api/v2/leads"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    for idx,row in df.iterrows():
+        data = {
+            "campaign": campaign_id,
+            "email": row['email'],
+            "first_name": row['username'],
+            "last_name": row['full_name'],
+            "personalization": row['email_pitch']
         }
-    
-    leads = [map_lead(lead) for lead in df.to_dict(orient="records")]
+        response = requests.post(url,headers=headers,json=data)
 
-    url = "https://api.instantly.ai/api/v1/lead/add"
-    headers = {'Content-Type': 'application/json'}
-    total_leads = len(leads)
-    print(len(leads))
-    total_batches = (total_leads // batch_size) + (1 if total_leads % batch_size != 0 else 0)
-    for i in range(total_batches):
-        batch_start = i * batch_size
-        batch_end = batch_start + batch_size
-        leads_batch = leads[batch_start:batch_end]
-        payload = {
-            "api_key": api_key,
-            "campaign_id": campaign_id,
-            "skip_if_in_workspace": False,
-            "skip_if_in_campaign": True,
-            "leads": leads_batch
-        }
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
-        # Log result and handle response
-        if response.status_code == 200:
-            print(f"Batch {i+1}/{total_batches} added successfully.")
-        else:
-            print(f"Error with Batch {i+1}: {response.status_code} - {response.text}")
-
+""" add leads to campaign and start campaign. """
 @app.post("/send_emails/")
 async def send_emails(campaign_id: str = Form(...)):
     campaigns = load_campaigns()
     campaign_data = next((campaign for campaign in campaigns if campaign["campaign_id"] == campaign_id), None)
     if campaign_data:
-        generated_email_path = campaign_data["generated_email_path"]
-        accounts = fetch_sending_accounts(INS_API_KEY)
-        add_accounts_to_campaign(INS_API_KEY,campaign_id,accounts)
-        add_leads_to_campaign(INS_API_KEY,campaign_id,generated_email_path)
+        add_leads_to_campaign(campaign_id)
         start_campaign(campaign_id)
         campaign_data["status"] = "emailsent"
         save_campaigns(campaigns)

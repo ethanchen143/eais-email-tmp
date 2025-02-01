@@ -1,22 +1,42 @@
 [
     {
-        "campaign_name": "My Campaign_1lVrY",
-        "campaign_id": "7dda5df6-c66d-4a4d-bd51-8a9701c6c23b",
+        "campaign_name": "fortnight_ZKjN0",
+        "campaign_id": "fe6af07b-ca5c-429d-96f1-733fd3ccadb7",
         "email_template": "Hi {{full_name}},\n\n...",
-        "leads_file_path": "leads/7dda5df6-c66d-4a4d-bd51-8a9701c6c23b.csv",
+        "leads_file_path": "leads/fe6af07b-ca5c-429d-96f1-733fd3ccadb7.csv",
         "intents": [],
         "responses": [],
         "status": "setup",
         "generated_email_path": ""
     },
     {
-        "campaign_name": "new campaign_K5lH4",
-        "campaign_id": "b9e45dca-e977-4484-80ea-58b73f4f2723",
+        "campaign_name": "test_campaign_gSnjP",
+        "campaign_id": "73beeb96-8349-46ad-acc5-2b5b88b313d8",
         "email_template": "Hi {{full_name}},\n\n...",
-        "leads_file_path": "leads/b9e45dca-e977-4484-80ea-58b73f4f2723.csv",
+        "leads_file_path": "leads/73beeb96-8349-46ad-acc5-2b5b88b313d8.csv",
+        "intents": [],
+        "responses": [],
+        "status": "emailready",
+        "generated_email_path": "emails/generated_emails_73beeb96-8349-46ad-acc5-2b5b88b313d8.csv"
+    },
+    {
+        "campaign_name": "newtest_tKxcS",
+        "campaign_id": "7b1dc503-49c7-4228-b4a6-dd217b0cd561",
+        "email_template": "Hi {{full_name}},\n\n...",
+        "leads_file_path": "leads/7b1dc503-49c7-4228-b4a6-dd217b0cd561.csv",
+        "intents": [],
+        "responses": [],
+        "status": "emailready",
+        "generated_email_path": "emails/generated_emails_7b1dc503-49c7-4228-b4a6-dd217b0cd561.csv"
+    },
+    {
+        "campaign_name": "final_test_Z7bd3",
+        "campaign_id": "765f1748-53f4-46a6-91da-affd31dc3520",
+        "email_template": "Hi {{full_name}},\n\n...",
+        "leads_file_path": "leads/765f1748-53f4-46a6-91da-affd31dc3520.csv",
         "intents": [],
         "responses": [],
         "status": "emailsent",
-        "generated_email_path": "emails/generated_emails_b9e45dca-e977-4484-80ea-58b73f4f2723.csv"
+        "generated_email_path": "emails/generated_emails_765f1748-53f4-46a6-91da-affd31dc3520.csv"
     }
 ]

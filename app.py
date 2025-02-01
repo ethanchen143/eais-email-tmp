@@ -9,16 +9,16 @@ API_URL = "http://localhost:8000"
 # ---------------------------
 # Utility functions
 # ---------------------------
-def create_campaign(api_url, campaign_name, uploaded_file, initial_email_template=""):
+def create_campaign(api_url, campaign_name, email_title, uploaded_file, initial_email_template=""):
     """Create new campaign with file upload through API"""
     files = {
         "file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")
     }
     data = {
         "name": campaign_name,
+        "email_title": email_title,
         "initial_email_template": initial_email_template
     }
-    
     try:
         response = requests.post(
             f"{api_url}/add_campaign/",
@@ -81,6 +81,7 @@ if page == "Create Campaign":
     st.header("Create New Campaign")
     
     campaign_name = st.text_input("Campaign Name", "My Campaign")
+    email_title = st.text_input("Email Title", "Hello {{firstName}}!")
     email_template = st.text_area("Base Email Template", "Hi {{full_name}},\n\n...")
     uploaded_file = st.file_uploader("Upload Leads CSV", type=["csv"])
     
@@ -97,6 +98,7 @@ if page == "Create Campaign":
             response = create_campaign(
                 API_URL,
                 campaign_name,
+                email_title,
                 uploaded_file,
                 email_template
             )
