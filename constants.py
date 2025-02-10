@@ -1,3 +1,22 @@
+get_keywords_prompt = """
+### Role and Task:
+You are a seasoned marketing strategist specializing in influencer partnerships. Identify 10-15 high-value keywords relevant to the brand/product.
+
+### Brand Page: 
+{brand}
+
+### Product Page:
+{product} 
+
+### Output Format:
+Return ONLY a JSON-formatted list of strings, with no explanations or extra text. Example:
+[
+    "keyword1",
+    "keyword2",
+    "keyword3"
+]
+"""
+
 generate_pitch_prompt = """
 ### Role and Task:
 You are a seasoned marketing strategist specializing in influencer partnerships. Craft a compelling pitch from the provided email template.
@@ -7,7 +26,7 @@ Customize the keyword in brackets based on the provided influencer information.
 username:{username}
 full name:{name}
 bio:{bio}
-desc:{desc}
+their video desc:{desc}
 
 ### Base Email:
 {email}

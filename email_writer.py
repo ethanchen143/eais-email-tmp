@@ -5,109 +5,13 @@ import os
 import tiktoken
 import requests
 from requests.exceptions import Timeout
+
 from dotenv import load_dotenv
 load_dotenv()
+
 GPT_API_KEY = os.environ.get("GPT_API_KEY")
 GPT_URL = os.environ.get("GPT_URL")
 DS_API_KEY = os.environ.get("DS_API_KEY")
-
-class DeepSeekOperations:
-    max_tokens = 2000 
-    
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
-        self.encoding = tiktoken.get_encoding("cl100k_base")
-        
-    def count_tokens(self, text: str):
-        return len(self.encoding.encode(text))
-    
-    def get_remaining_tokens(self, prompt_elements: list, tokens_limit=None):
-        remaining_tokens = tokens_limit if tokens_limit else self.max_tokens
-        for element in prompt_elements:
-            remaining_tokens -= (self.count_tokens(element) + 9)
-        return remaining_tokens
-    
-    def get_remaining_tokens_prompt_dict(self, prompt_element, tokens_limit=None):
-        remaining_tokens = tokens_limit if tokens_limit else self.max_tokens
-        remaining_tokens -= (self.count_tokens("role:"))
-        remaining_tokens -= (self.count_tokens(prompt_element["role"]))
-        remaining_tokens -= (self.count_tokens("content:"))
-        remaining_tokens -= (self.count_tokens(prompt_element["content"]))
-        return remaining_tokens
-    
-    def call_deepseek_api(
-        self, 
-        context, 
-        model=None, 
-        temperature=0, 
-        max_tokens=3500, 
-        timeout=10
-    ):
-        context = copy.deepcopy(context)
-        for message in context:
-            message.pop("time_stamp", None)
-        
-        model = model or self.model
-        
-        # DeepSeek API endpoint and key
-        url = "https://api.deepseek.com/v1/chat/completions"
-        api_key = DS_API_KEY
-        
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json"
-        }
-        
-        data = {
-            "model": model,
-            "messages": context,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_p": 1,
-            "frequency_penalty": 0.0,
-            "presence_penalty": 0.0
-        }
-        
-        error = "None"
-        tokens = sum(self.count_tokens(msg["content"]) + 7 for msg in context)
-        
-        try:
-            response = requests.post(
-                url=url, 
-                headers=headers, 
-                json=data, 
-                timeout=timeout
-            )
-            response.raise_for_status()
-            result = response.json()
-            return (
-                result['choices'][0]['message']['content'], 
-                {"tokens": tokens, "message": "Success", "error": error}
-            )
-        except requests.exceptions.Timeout as e:
-            error = f"Timeout: {str(e)}"
-        except Exception as e:
-            error = f"Error: {str(e)}"
-        
-        return False, {"tokens": tokens, "message": error, "error": error}
-    
-    def call_deepseek_json(
-        self, 
-        prompt, 
-        model=None, 
-        temperature=0, 
-        max_tokens=2000, 
-        timeout=40
-    ):
-        context = [{"role": "system", "content": prompt}]
-        return self.call_deepseek_api(
-            context, 
-            model, 
-            temperature, 
-            max_tokens, 
-            timeout
-        )
 
 class GptOperations:
     max_tokens = 2000
@@ -217,6 +121,144 @@ class EmailWriter:
         os.makedirs(os.path.dirname(generated_email_path), exist_ok=True)
         pd.DataFrame(emails).to_csv(generated_email_path, index=False, encoding='utf-8')
         return generated_email_path
+
+
+# DS_API_KEY = os.environ.get("DS_API_KEY")
+
+# class DeepSeekOperations:
+#     max_tokens = 2000 
+#     def __init__(self, model="deepseek-chat"):
+#         self.model = model
+#         self.encoding = tiktoken.get_encoding("cl100k_base")
+        
+#     def count_tokens(self, text: str):
+#         return len(self.encoding.encode(text))
+    
+#     def get_remaining_tokens(self, prompt_elements: list, tokens_limit=None):
+#         remaining_tokens = tokens_limit if tokens_limit else self.max_tokens
+#         for element in prompt_elements:
+#             remaining_tokens -= (self.count_tokens(element) + 9)
+#         return remaining_tokens
+    
+#     def get_remaining_tokens_prompt_dict(self, prompt_element, tokens_limit=None):
+#         remaining_tokens = tokens_limit if tokens_limit else self.max_tokens
+#         remaining_tokens -= (self.count_tokens("role:"))
+#         remaining_tokens -= (self.count_tokens(prompt_element["role"]))
+#         remaining_tokens -= (self.count_tokens("content:"))
+#         remaining_tokens -= (self.count_tokens(prompt_element["content"]))
+#         return remaining_tokens
+    
+#     def call_deepseek_api(
+#         self, 
+#         context, 
+#         model=None, 
+#         temperature=0, 
+#         max_tokens=3500, 
+#         timeout=10
+#     ):
+#         context = copy.deepcopy(context)
+#         for message in context:
+#             message.pop("time_stamp", None)
+        
+#         model = model or self.model
+        
+#         # DeepSeek API endpoint and key
+#         url = "https://api.deepseek.com/v1/chat/completions"
+#         api_key = DS_API_KEY
+        
+#         headers = {
+#             "Content-Type": "application/json",
+#             "Authorization": f"Bearer {api_key}",
+#             "Accept": "application/json"
+#         }
+        
+#         data = {
+#             "model": model,
+#             "messages": context,
+#             "temperature": temperature,
+#             "max_tokens": max_tokens,
+#             "top_p": 1,
+#             "frequency_penalty": 0.0,
+#             "presence_penalty": 0.0
+#         }
+        
+#         error = "None"
+#         tokens = sum(self.count_tokens(msg["content"]) + 7 for msg in context)
+        
+#         try:
+#             response = requests.post(
+#                 url=url, 
+#                 headers=headers, 
+#                 json=data, 
+#                 timeout=timeout
+#             )
+#             response.raise_for_status()
+#             result = response.json()
+#             return (
+#                 result['choices'][0]['message']['content'], 
+#                 {"tokens": tokens, "message": "Success", "error": error}
+#             )
+#         except requests.exceptions.Timeout as e:
+#             error = f"Timeout: {str(e)}"
+#         except Exception as e:
+#             error = f"Error: {str(e)}"
+        
+#         return False, {"tokens": tokens, "message": error, "error": error}
+    
+#     def call_deepseek_json(
+#         self, 
+#         prompt, 
+#         model=None, 
+#         temperature=0, 
+#         max_tokens=2000, 
+#         timeout=40
+#     ):
+#         context = [{"role": "system", "content": prompt}]
+#         return self.call_deepseek_api(
+#             context, 
+#             model, 
+#             temperature, 
+#             max_tokens, 
+#             timeout
+#         )
+    
+# class EmailWriter:
+#     def __init__(self):
+#         self.ds_ops = DeepSeekOperations()
+#         self.type = type
+
+#     def generate_pitch(self,username,name,bio,desc,email_template):
+#         generate_pitch_prompt_for_ds = copy.deepcopy(generate_pitch_prompt).format(
+#             username=username,name=name,bio=bio,desc=desc,email=email_template
+#         )
+#         pitch_response_full_email, status = self.ds_ops.call_deepseek_json(prompt=generate_pitch_prompt_for_ds,model="deepseek-chat")
+#         return pitch_response_full_email
+
+#     def generate_email(self, file_path, cmp_id, email_template):
+#         df = pd.read_csv(file_path, encoding='utf-8')
+#         emails = []
+#         for index, row in df.iterrows():
+#             username = row['username']
+#             name = row['full_name']
+#             bio = row['bio']
+#             desc = row['video_desc']
+#             email = row['email'] # email address
+
+#             # influencer_profiling_response = self.get_influencer_profile(username,name,bio,desc)
+#             email_pitch = self.generate_pitch(username,name,bio,desc,email_template)
+#             emails.append({
+#                 "username": username,
+#                 "full_name": name,
+#                 "email_pitch": email_pitch,
+#                 "bio": bio,
+#                 "video_desc": desc,
+#                 "email": email
+#             })
+            
+#         generated_email_path = os.path.join("emails", f"generated_emails_{cmp_id}.csv")
+#         os.makedirs(os.path.dirname(generated_email_path), exist_ok=True)
+#         pd.DataFrame(emails).to_csv(generated_email_path, index=False, encoding='utf-8')
+#         return generated_email_path
     
     # def get_email_index(self, campaign_data, email):
     #     for index, lead in enumerate(campaign_data):
@@ -231,7 +273,7 @@ class EmailWriter:
     #         influencer_bio = influencer_bio,
     #         video_descriptions = video_descriptions
     #     )
-    #     influencer_profiling_response, status = self.gpt_ops.call_gpt_openai_json(prompt=influencer_profiling_prompt_for_gpt,model="gpt-4o-mini")
+    #     influencer_profiling_response, status = self.ds_ops.call_gpt_openai_json(prompt=influencer_profiling_prompt_for_gpt,model="gpt-4o-mini")
     #     influencer_profiling_response = json.loads(influencer_profiling_response)
     #     return influencer_profiling_response
 
@@ -239,7 +281,7 @@ class EmailWriter:
     #     reply_intent_prompt_for_gpt = copy.deepcopy(reply_intent_prompt).format(
     #         user_message = message
     #     )
-    #     reply_intent_response, status = self.gpt_ops.call_gpt_openai_json(prompt=reply_intent_prompt_for_gpt,model="gpt-4o")
+    #     reply_intent_response, status = self.ds_ops.call_gpt_openai_json(prompt=reply_intent_prompt_for_gpt,model="gpt-4o")
     #     reply_intent_response = json.loads(reply_intent_response)
     #     return reply_intent_response['intent']
 
@@ -248,7 +290,7 @@ class EmailWriter:
     #     human_needed_prompt_for_gpt = copy.deepcopy(human_needed_prompt).format(
     #         influencer_response = message
     #     )
-    #     reply_response, status = self.gpt_ops.call_gpt_openai_json(prompt=human_needed_prompt_for_gpt,model="gpt-4o")
+    #     reply_response, status = self.ds_ops.call_gpt_openai_json(prompt=human_needed_prompt_for_gpt,model="gpt-4o")
     #     reply_response = json.loads(reply_response)
     #     return reply_response['message']
 

@@ -1,23 +1,24 @@
 import json
 import requests
-from fastapi import FastAPI, Form, HTTPException, UploadFile, File
+from fastapi import FastAPI, Form, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
-from email_writer import EmailWriter
+from email_writer import EmailWriter, GptOperations
 import pandas as pd
 import random
 import string
 from typing import List
 import os
+import copy
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from constants import get_keywords_prompt, generate_template_prompt
 import aiofiles
+
 load_dotenv()
-
 VERSION = "1.0.0"
-
 app = FastAPI()
 email_writer_module = EmailWriter()
-
-
+gpt_ops_module = GptOperations()
 INS_API_KEY = os.environ.get("INSTANTLY_API_KEY")
 
 # Configure CORS
@@ -81,6 +82,58 @@ def create_campaign(campaign_name, email_title):
 async def root():
     return {"Version": VERSION}
 
+def scrape_page(url):
+    url = url.strip('/')
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to retrieve {url}: {e}")
+        return
+    soup = BeautifulSoup(response.content, 'html.parser')
+    page_text = soup.get_text(separator='\n').strip()
+    page_text = page_text.replace('\n','').replace(' ','')
+    return page_text
+
+@app.get("/get_keywords")
+async def get_keywords(
+    product_url: str = Query(...),
+    brand_url: str = Query(...)
+):  
+    product_page = scrape_page(product_url)
+    brand_page = scrape_page(brand_url)
+    get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
+        brand = brand_page, product = product_page
+    )
+    response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
+    try:
+        keywords = json.loads(response) if isinstance(response, str) else response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
+    if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
+        raise HTTPException(status_code=400, detail="Response is not a list of strings")
+    
+    return {"keywords": keywords}
+
+@app.get("/generate_template")
+async def generate_template(
+    product_url: str = Query(...),
+    brand_url: str = Query(...)
+):  
+    product_page = scrape_page(product_url)
+    brand_page = scrape_page(brand_url)
+    get_keywords_prompt_for_ds = copy.deepcopy(generate_template_prompt).format(
+        brand = brand_page, product = product_page
+    )
+    response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
+    try:
+        keywords = json.loads(response) if isinstance(response, str) else response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
+    if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
+        raise HTTPException(status_code=400, detail="Response is not a list of strings")
+    
+    return {"keywords": keywords}
 
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
 @app.post("/add_campaign/")
