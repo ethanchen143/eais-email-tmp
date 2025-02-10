@@ -11,7 +11,7 @@ import os
 import copy
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from constants import get_keywords_prompt, generate_template_prompt
+from constants import get_keywords_prompt
 import aiofiles
 
 load_dotenv()
