@@ -120,7 +120,6 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
-    
     return {"keywords": keywords}
 
 @app.get("/generate_template")
@@ -139,8 +138,7 @@ async def generate_template(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-        raise HTTPException(status_code=400, detail="Response is not a list of strings")
-    
+        raise HTTPException(status_code=400, detail="Response is not a list of strings")   
     return {"keywords": keywords}
 
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
@@ -295,17 +293,16 @@ def add_leads_to_campaign(campaign_id: str):
             "personalization": email_entry["email_pitch"]
         }
 
-
         response = requests.post(url, headers=headers, json=data)
 
-        if response.status_code == 201:  # Assuming 201 means successful creation######??????????? need comfirm
+        if response.status_code == 200:  
             successful_uploads += 1
         else:
             failed_uploads.append({
                 "email": email_entry["email"],
                 "error": response.text
             })
-
+        
     return {
         "status": "Success",
         "message": f"{successful_uploads} leads added successfully.",
