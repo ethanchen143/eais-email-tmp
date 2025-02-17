@@ -7,11 +7,21 @@ import requests
 from requests.exceptions import Timeout
 
 from dotenv import load_dotenv
+from pymongo import MongoClient
 load_dotenv()
 
 GPT_API_KEY = os.environ.get("GPT_API_KEY")
 GPT_URL = os.environ.get("GPT_URL")
 DS_API_KEY = os.environ.get("DS_API_KEY")
+
+# MongoDB Connection
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE_NAME")
+
+client = MongoClient(MONGODB_URI)
+db = client[MONGODB_DATABASE_NAME]
+generated_emails_collection = db["generated_emails"]  
+leads_collection = db["leads"]  
 
 class GptOperations:
     max_tokens = 2000
@@ -41,6 +51,7 @@ class GptOperations:
         return remaining_tokens
 
     def call_gpt_openai(self, context, model=None, temperature=0, max_tokens=3500, timeout=10):
+        print("call apt function....")
         context = copy.deepcopy(context)
         for message in context:
             message.pop("time_stamp", None)
@@ -49,6 +60,8 @@ class GptOperations:
         
         url = GPT_URL
         api_key = GPT_API_KEY
+        print("Using GPT API:", GPT_URL)
+        print("Headers:", GPT_API_KEY)
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}"
@@ -67,15 +80,23 @@ class GptOperations:
         tokens = sum(self.count_tokens(message["content"]) + 7 for message in context)
         
         try:
+            print("Try....")
             response = requests.post(url=url, headers=headers, json=data, timeout=timeout)
             response.raise_for_status()
+            print("Response Status Code:", response.status_code)
+            print("Response Text:", response.text)  # See full API error message
+
             result = response.json()
+            # print(result['choices'][0]['message']['content'])
+            print("result", result)
             message = "Success"
             return result['choices'][0]['message']['content'], {"tokens": tokens, "message": message, "error": error}
         except Timeout as e:
+            print("Timeout....")
             message = f"The Request Timed out: {str(e)}"
             error = str(e)
         except Exception as e:
+            print("Other Error....",str(e))
             message = f"An unexpected error occurred: {str(e)}"
             error = str(e)
         return False, {"tokens": tokens, "message": message, "error": error}
@@ -96,33 +117,49 @@ class EmailWriter:
         pitch_response_full_email, status = self.gpt_ops.call_gpt_openai_json(prompt=generate_pitch_prompt_for_gpt,model="gpt-4o-mini")
         return pitch_response_full_email
 
-    def generate_email(self, file_path, cmp_id, email_template):
-        df = pd.read_csv(file_path, encoding='utf-8')
-        emails = []
-        for index, row in df.iterrows():
-            username = row['username']
-            name = row['full_name']
-            bio = row['bio']
-            desc = row['video_desc']
-            email = row['email']
+    
+    def generate_email(self, campaign_id, email_template):
+        try:
+            # Fetch leads from MongoDB instead of reading a CSV
+            leads_data = leads_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
+            print("Leads Data:")
+            print(leads_data)
+            if not leads_data:
+                print(f"Error: No leads found for campaign_id {campaign_id}")
+                return False  
 
-            # influencer_profiling_response = self.get_influencer_profile(username,name,bio,desc)
-            email_pitch = self.generate_pitch(username,name,bio,desc,email_template)
-            emails.append({
-                "username": username,
-                "full_name": name,
-                "email_pitch": email_pitch,
-                "bio": bio,
-                "video_desc": desc,
-                "email": email
-            })
+            emails = []
+
+            for lead in leads_data["data"]:
+                username = lead["username"]
+                name = lead["name"]
+                bio = lead["bio"]
+                desc = lead["desc"]
+                email = lead["email"]
+
+                 # Generate personalized email content
+                email_pitch = self.generate_pitch(username, name, bio, desc, email_template)
+                emails.append({
+                    "username": username,
+                    "full_name": name,
+                    "email_pitch": email_pitch,
+                    "bio": bio,
+                    "video_desc": desc,
+                    "email": email
+                })
             
-        generated_email_path = os.path.join("emails", f"generated_emails_{cmp_id}.csv")
-        os.makedirs(os.path.dirname(generated_email_path), exist_ok=True)
-        pd.DataFrame(emails).to_csv(generated_email_path, index=False, encoding='utf-8')
-        return generated_email_path
+            # Store generated emails in MongoDB instead of saving as a CSV file
+            generated_emails_collection.insert_one({
+                "campaign_id": campaign_id,
+                "data": emails
+            })
 
-
+            return True
+    
+        except Exception as e:
+            print(f"Error in generate_email: {str(e)}")  
+            return False  
+        
 # DS_API_KEY = os.environ.get("DS_API_KEY")
 
 # class DeepSeekOperations:
