@@ -7,11 +7,21 @@ import requests
 from requests.exceptions import Timeout
 
 from dotenv import load_dotenv
+from pymongo import MongoClient
 load_dotenv()
 
 GPT_API_KEY = os.environ.get("GPT_API_KEY")
 GPT_URL = os.environ.get("GPT_URL")
 DS_API_KEY = os.environ.get("DS_API_KEY")
+
+# MongoDB Connection
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE_NAME")
+
+client = MongoClient(MONGODB_URI)
+db = client[MONGODB_DATABASE_NAME]
+generated_emails_collection = db["generated_emails"]  
+leads_collection = db["leads"]  
 
 class GptOperations:
     max_tokens = 2000
@@ -96,33 +106,48 @@ class EmailWriter:
         pitch_response_full_email, status = self.gpt_ops.call_gpt_openai_json(prompt=generate_pitch_prompt_for_gpt,model="gpt-4o-mini")
         return pitch_response_full_email
 
-    def generate_email(self, file_path, cmp_id, email_template):
-        df = pd.read_csv(file_path, encoding='utf-8')
-        emails = []
-        for index, row in df.iterrows():
-            username = row['username']
-            name = row['full_name']
-            bio = row['bio']
-            desc = row['video_desc']
-            email = row['email']
+    
+    def generate_email(self, campaign_id, email_template):
+        try:
+            # Fetch leads from MongoDB instead of reading a CSV
+            leads_data = leads_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
+            if not leads_data:
+                print(f"Error: No leads found for campaign_id {campaign_id}")
+                return False  
 
-            # influencer_profiling_response = self.get_influencer_profile(username,name,bio,desc)
-            email_pitch = self.generate_pitch(username,name,bio,desc,email_template)
-            emails.append({
-                "username": username,
-                "full_name": name,
-                "email_pitch": email_pitch,
-                "bio": bio,
-                "video_desc": desc,
-                "email": email
-            })
+            emails = []
+
+            for lead in leads_data["data"]:
+                username = lead["username"]
+                name = lead["name"]
+                bio = lead["bio"]
+                desc = lead["desc"]
+                email = lead["email"]
+
+                 # Generate personalized email content
+                email_pitch = self.generate_pitch(username, name, bio, desc, email_template)
+                emails.append({
+                    "username": username,
+                    "full_name": name,
+                    "email_pitch": email_pitch,
+                    "bio": bio,
+                    "video_desc": desc,
+                    "email": email
+                })
             
-        generated_email_path = os.path.join("emails", f"generated_emails_{cmp_id}.csv")
-        os.makedirs(os.path.dirname(generated_email_path), exist_ok=True)
-        pd.DataFrame(emails).to_csv(generated_email_path, index=False, encoding='utf-8')
-        return generated_email_path
+            # Store or update generated emails in MongoDB
+            generated_emails_collection.update_one(
+            {"campaign_id": campaign_id},  # Query to find the existing document
+            {"$set": {"data": emails}},  # Update the "data" field with new emails
+            upsert=True  # If no document exists, create a new one
+            )           
 
-
+            return True
+    
+        except Exception as e:
+            print(f"Error in generate_email: {str(e)}")  
+            return False  
+        
 # DS_API_KEY = os.environ.get("DS_API_KEY")
 
 # class DeepSeekOperations:

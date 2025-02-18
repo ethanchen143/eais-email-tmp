@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from constants import get_keywords_prompt
 import aiofiles
+from pymongo import MongoClient
+from bson import ObjectId
 
 load_dotenv()
 VERSION = "1.0.0"
@@ -20,6 +22,15 @@ app = FastAPI()
 email_writer_module = EmailWriter()
 gpt_ops_module = GptOperations()
 INS_API_KEY = os.environ.get("INSTANTLY_API_KEY")
+
+# MongoDB Connection
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE_NAME")
+client = MongoClient(MONGODB_URI)
+db = client[MONGODB_DATABASE_NAME]
+campaigns_collection = db["campaigns"]
+leads_collection = db["leads"]
+generated_emails_collection = db["generated_emails"]
 
 # Configure CORS
 app.add_middleware(
@@ -30,13 +41,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-def load_campaigns():
-    with open("campaigns.json", "r") as file:
-        return json.load(file)
-
-def save_campaigns(campaigns):
-    with open("campaigns.json", "w") as file:
-        json.dump(campaigns, file, indent=4)
 
 def fetch_sending_accounts():
     url = f"https://api.instantly.ai/api/v2/accounts?limit=10&status=1"
@@ -99,7 +103,8 @@ def scrape_page(url):
 async def get_keywords(
     product_url: str = Query(...),
     brand_url: str = Query(...)
-):  
+):     
+
     product_page = scrape_page(product_url)
     brand_page = scrape_page(brand_url)
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
@@ -112,7 +117,6 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
-    
     return {"keywords": keywords}
 
 @app.get("/generate_template")
@@ -131,8 +135,7 @@ async def generate_template(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-        raise HTTPException(status_code=400, detail="Response is not a list of strings")
-    
+        raise HTTPException(status_code=400, detail="Response is not a list of strings")   
     return {"keywords": keywords}
 
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
@@ -151,14 +154,31 @@ async def add_campaign(
         email_title = "Hello {{firstName}}!"
     new_campaign_id = create_campaign(unique_name, email_title)['id']
 
-    os.makedirs("leads", exist_ok=True)
-    # Save uploaded file
-    file_path = os.path.join("leads", f"{new_campaign_id}.csv")
+
     try:
-        # Async write file
-        async with aiofiles.open(file_path, "wb") as f:
+
             content = await file.read()
-            await f.write(content)
+            data = pd.read_csv(pd.io.common.BytesIO(content))  # Read CSV as Pandas DataFrame
+
+
+            # Convert DataFrame to structured format
+            lead_data = []
+            for _, row in data.iterrows():
+                lead_data.append({
+                    "username": row["username"],
+                    "name": row["full_name"],
+                    "bio": row["bio"],
+                    "desc": row["video_desc"],
+                    "email": row["email"],
+                })
+
+            # Insert leads under campaign_id
+            leads_collection.insert_one({
+                "campaign_id": new_campaign_id,
+                "data": lead_data
+            })
+        
+            #await f.write(content)
     except Exception as e:
         return {"status": f"File upload failed: {str(e)}"}
 
@@ -167,74 +187,73 @@ async def add_campaign(
         "campaign_name": unique_name,
         "campaign_id": new_campaign_id,
         "email_template": initial_email_template,
-        "leads_file_path": file_path,
+        #"leads_file_path": file_path,
         "intents": [],  
         "responses": [], 
         "status": "setup", # NEXT STAGE IS emailready, emailsent
         "generated_email_path": ""
     }
-    # Write to JSON file
-    try:
-        with open("campaigns.json", "r") as file:
-            if file.read().strip() == "":
-                existing_data = []
-            else:
-                file.seek(0)
-                existing_data = json.load(file)
-    except FileNotFoundError:
-        existing_data = []
-    existing_data.append(campaign_data)
+    
+    
+    # Insert into MongoDB
+    #campaigns_collection.insert_one(campaign_data)
+    result = campaigns_collection.insert_one(campaign_data)
 
-    with open("campaigns.json", "w") as file:
-        json.dump(existing_data, file, indent=4)
+    # Convert `_id` to string for JSON response
+    campaign_data["_id"] = str(result.inserted_id)
 
     return {"new_campaign_id": new_campaign_id, "status": "Campaign created successfully", "campaign": campaign_data}
 
 @app.post("/generate_emails/")
 async def generate_emails(campaign_id: str = Form(...),):
-    campaigns = load_campaigns()
-    # Check if the campaign exists
-    campaign_data = next((campaign for campaign in campaigns if campaign["campaign_id"] == campaign_id), None)
 
+    campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})  # Exclude `_id`
     if campaign_data:
-        campaign_name = campaign_data["campaign_name"]
+        # campaign_name = campaign_data["campaign_name"]
         campaign_id = campaign_data["campaign_id"]
         email_template = campaign_data["email_template"]
-        leads_file_path = campaign_data["leads_file_path"]
-        generated_email_path = email_writer_module.generate_email(leads_file_path, campaign_id, email_template)
-        campaign_data["generated_email_path"] = generated_email_path
-        campaign_data["status"] = "emailready"
-        save_campaigns(campaigns)
+        generated_email_result = email_writer_module.generate_email( campaign_id, email_template)
+
+        if generated_email_result==False:
+            return {"status": "Failed to generate emails"}
+        # Update campaign data in MongoDB
+        campaigns_collection.update_one(
+            {"campaign_id": campaign_id},
+            {"$set": {
+            # "generated_email_path": generated_email_path,
+            "status": "emailready"
+        }})
         return {"status": True}
     else:
         return {"status": "Failed to generate emails"}
 
+
 @app.get("/campaign/get_emails/{campaign_id}")
 def get_emails(campaign_id: str):
-    # Locate the generated emails file
-    generated_email_path = f"emails/generated_emails_{campaign_id}.csv"
-    if not os.path.exists(generated_email_path):
-        raise HTTPException(status_code=404, detail="Generated email file not found.")
+    
+    emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
 
-    # Read and return the emails as JSON
-    df_emails = pd.read_csv(generated_email_path)
-    return {"emails": df_emails.to_dict(orient="records")}
+    if not emails:
+        raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
+
+    return {"emails": emails["data"]}
 
 @app.post("/campaign/update_emails/{campaign_id}")
 def update_emails(campaign_id: str, emails: list[dict]):
-    # Locate the generated emails file
-    generated_email_path = f"emails/generated_emails_{campaign_id}.csv"
-    if not os.path.exists(generated_email_path):
-        raise HTTPException(status_code=404, detail="Generated email file not found.")
+    
+    # Update the emails in MongoDB (overwrite the existing "data" field)
+    result = generated_emails_collection.update_one(
+        {"campaign_id": campaign_id},
+        {"$set": {"data": emails}}
+    )
 
-    # Convert the received JSON data back to a DataFrame
-    df_updated = pd.DataFrame(emails)
+    # Check if the campaign exists
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="No matching campaign found.")
 
-    # Overwrite the existing CSV file with updated data
-    try:
-        df_updated.to_csv(generated_email_path, index=False)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save updates: {str(e)}")
+    # Check if the update was successful
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to update emails. No changes detected.")
 
     return {"status": "Success", "message": "Emails updated successfully."}
 
@@ -246,33 +265,60 @@ def start_campaign(id):
     response = requests.post(url, headers=headers)
     return response.json()
 
-def add_leads_to_campaign(campaign_id):
-    df = pd.read_csv(f'./emails/generated_emails_{campaign_id}.csv')
+def add_leads_to_campaign(campaign_id: str):
+ 
+    campaign_emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0, "data": 1})
+    if not campaign_emails or "data" not in campaign_emails:
+        raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
+
     url = "https://api.instantly.ai/api/v2/leads"
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {INS_API_KEY}',
     }
-    for idx,row in df.iterrows():
+
+    successful_uploads = 0
+    failed_uploads = []
+
+    for email_entry in campaign_emails["data"]:
         data = {
             "campaign": campaign_id,
-            "email": row['email'],
-            "first_name": row['username'],
-            "last_name": row['full_name'],
-            "personalization": row['email_pitch']
+            "email": email_entry["email"],
+            "first_name": email_entry["username"],
+            "last_name": email_entry["full_name"],
+            "personalization": email_entry["email_pitch"]
         }
-        response = requests.post(url,headers=headers,json=data)
+
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:  
+            successful_uploads += 1
+        else:
+            failed_uploads.append({
+                "email": email_entry["email"],
+                "error": response.text
+            })
+        
+    return {
+        "status": "Success",
+        "message": f"{successful_uploads} leads added successfully.",
+        "failed_uploads": failed_uploads
+    }
 
 """ add leads to campaign and start campaign. """
 @app.post("/send_emails/")
 async def send_emails(campaign_id: str = Form(...)):
-    campaigns = load_campaigns()
-    campaign_data = next((campaign for campaign in campaigns if campaign["campaign_id"] == campaign_id), None)
+    campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id})
+    
     if campaign_data:
         add_leads_to_campaign(campaign_id)
         start_campaign(campaign_id)
-        campaign_data["status"] = "emailsent"
-        save_campaigns(campaigns)
+        
+        campaigns_collection.update_one(
+            {"campaign_id": campaign_id},
+            {"$set": {"status": "emailsent"}}
+        )
+        
         return {"status": True}
     else:
         return {"status": "Failed to send emails"}

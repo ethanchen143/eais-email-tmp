@@ -11,3 +11,4 @@ requests>=2.26.0
 aiofiles
 python-multipart
 bs4
+pymongo>=4.7.0
