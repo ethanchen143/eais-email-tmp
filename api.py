@@ -41,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-
 def fetch_sending_accounts():
     url = f"https://api.instantly.ai/api/v2/accounts?limit=10&status=1"
     headers = {
@@ -119,47 +118,6 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
 
-<<<<<<< HEAD
-# @app.get("/generate_template")
-# async def generate_template(
-#     product_url: str = Query(...),
-#     brand_url: str = Query(...)
-# ):  
-#     product_page = scrape_page(product_url)
-#     brand_page = scrape_page(brand_url)
-#     get_keywords_prompt_for_ds = copy.deepcopy(generate_template_prompt).format(
-#         brand = brand_page, product = product_page
-#     )
-#     response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
-#     try:
-#         keywords = json.loads(response) if isinstance(response, str) else response
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
-#     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-#         raise HTTPException(status_code=400, detail="Response is not a list of strings")
-    
-#     return {"keywords": keywords}
-=======
-@app.get("/generate_template")
-async def generate_template(
-    product_url: str = Query(...),
-    brand_url: str = Query(...)
-):  
-    product_page = scrape_page(product_url)
-    brand_page = scrape_page(brand_url)
-    get_keywords_prompt_for_ds = copy.deepcopy(generate_template_prompt).format(
-        brand = brand_page, product = product_page
-    )
-    response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
-    try:
-        keywords = json.loads(response) if isinstance(response, str) else response
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
-    if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-        raise HTTPException(status_code=400, detail="Response is not a list of strings")   
-    return {"keywords": keywords}
->>>>>>> 6792dc7aa9930e903f92d601ed44c49e458a6b65
-
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
 @app.post("/add_campaign/")
 async def add_campaign(
@@ -178,10 +136,8 @@ async def add_campaign(
 
 
     try:
-
             content = await file.read()
             data = pd.read_csv(pd.io.common.BytesIO(content))  # Read CSV as Pandas DataFrame
-
 
             # Convert DataFrame to structured format
             lead_data = []

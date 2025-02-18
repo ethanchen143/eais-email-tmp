@@ -4,3 +4,4 @@
 chromedriver
 /emails/
 /leads/
+/__pycache__/
