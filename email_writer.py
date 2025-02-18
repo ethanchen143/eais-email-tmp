@@ -51,7 +51,6 @@ class GptOperations:
         return remaining_tokens
 
     def call_gpt_openai(self, context, model=None, temperature=0, max_tokens=3500, timeout=10):
-        print("call apt function....")
         context = copy.deepcopy(context)
         for message in context:
             message.pop("time_stamp", None)
@@ -60,8 +59,6 @@ class GptOperations:
         
         url = GPT_URL
         api_key = GPT_API_KEY
-        print("Using GPT API:", GPT_URL)
-        print("Headers:", GPT_API_KEY)
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}"
@@ -80,23 +77,15 @@ class GptOperations:
         tokens = sum(self.count_tokens(message["content"]) + 7 for message in context)
         
         try:
-            print("Try....")
             response = requests.post(url=url, headers=headers, json=data, timeout=timeout)
             response.raise_for_status()
-            print("Response Status Code:", response.status_code)
-            print("Response Text:", response.text)  # See full API error message
-
             result = response.json()
-            # print(result['choices'][0]['message']['content'])
-            print("result", result)
             message = "Success"
             return result['choices'][0]['message']['content'], {"tokens": tokens, "message": message, "error": error}
         except Timeout as e:
-            print("Timeout....")
             message = f"The Request Timed out: {str(e)}"
             error = str(e)
         except Exception as e:
-            print("Other Error....",str(e))
             message = f"An unexpected error occurred: {str(e)}"
             error = str(e)
         return False, {"tokens": tokens, "message": message, "error": error}
@@ -122,8 +111,6 @@ class EmailWriter:
         try:
             # Fetch leads from MongoDB instead of reading a CSV
             leads_data = leads_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
-            print("Leads Data:")
-            print(leads_data)
             if not leads_data:
                 print(f"Error: No leads found for campaign_id {campaign_id}")
                 return False  
@@ -148,11 +135,12 @@ class EmailWriter:
                     "email": email
                 })
             
-            # Store generated emails in MongoDB instead of saving as a CSV file
-            generated_emails_collection.insert_one({
-                "campaign_id": campaign_id,
-                "data": emails
-            })
+            # Store or update generated emails in MongoDB
+            generated_emails_collection.update_one(
+            {"campaign_id": campaign_id},  # Query to find the existing document
+            {"$set": {"data": emails}},  # Update the "data" field with new emails
+            upsert=True  # If no document exists, create a new one
+            )           
 
             return True
     

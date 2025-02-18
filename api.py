@@ -104,16 +104,13 @@ async def get_keywords(
     product_url: str = Query(...),
     brand_url: str = Query(...)
 ):     
-    
-    print("API Key:", os.environ)
+
     product_page = scrape_page(product_url)
     brand_page = scrape_page(brand_url)
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
         brand = brand_page, product = product_page
     )
-    print("get_keywords_prompt_for_ds:",get_keywords_prompt_for_ds)
     response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
-    print("response:",response)
     try:
         keywords = json.loads(response) if isinstance(response, str) else response
     except Exception as e:
@@ -215,7 +212,6 @@ async def generate_emails(campaign_id: str = Form(...),):
         # campaign_name = campaign_data["campaign_name"]
         campaign_id = campaign_data["campaign_id"]
         email_template = campaign_data["email_template"]
-        print("genrate email")
         generated_email_result = email_writer_module.generate_email( campaign_id, email_template)
 
         if generated_email_result==False:
