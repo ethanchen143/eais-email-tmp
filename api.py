@@ -313,6 +313,28 @@ async def set_auto_reply(campaign_id: str = Form(...),
                           responses: List[str] = Form([]) ):
     return{}
 
+
+""" send offer to influencer """
+@app.post("/send-offer/")
+async def send_offer(offer_data: dict):
+    try:
+        response = email_writer_module.generate_offer_email(offer_data)
+        print(response)
+        if(response.get("status")!= True):
+            raise HTTPException(status_code=500, detail="Failed to generate offer email")
+        offer_html=response.get("offer_html")
+
+        # Save the generated HTML to a local file
+        output_dir = "emails"  # Folder where the email HTML will be saved
+        os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
+        file_path = os.path.join(output_dir, f"offer_{offer_data['influencer_name']}.html")
+        
+        with open(file_path, "w") as file:
+            file.write(offer_html)
+        return {"status": True,"message": "Offer email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 # @app.post("/send_initial_emails/")
 # async def send_initial_emails(cm_name: str = Form(...)):
     

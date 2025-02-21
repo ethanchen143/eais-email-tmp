@@ -12,3 +12,4 @@ aiofiles
 python-multipart
 bs4
 pymongo>=4.7.0
+Jinja2>=3.1.2

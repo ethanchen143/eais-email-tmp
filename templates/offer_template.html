@@ -1,0 +1,186 @@
+<html>
+  <title>Influencer Collaboration Offer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+    p {
+      color: #555;
+      line-height: 1.5;
+    }
+    .highlight {
+      font-weight: bold;
+      color: #d9534f;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      margin-top: 15px;
+      color: #fff;
+      background: #007bff;
+      text-decoration: none;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      margin-top: 20px;
+    }
+  </style>
+  <body>
+    <div class="container">
+      <h2>Influencer Collaboration Offer</h2>
+      <p>Hi {{ email_data.influencer_name }},</p>
+      <p>
+        We are excited to invite you to our influencer campaign for
+        <span class="highlight">{{ email_data.brand_name }}</span>. As part of
+        this collaboration, we’d love for you to create a product review video
+        showcasing:
+      </p>
+      <ul>
+        <li>
+          At least <strong>{{ email_data.num_selling_points }}</strong> selling
+          points: <em>{{ email_data.selling_points }}</em>
+        </li>
+        <li>
+          How you got the product: {{ email_data.product_delivery_method }}
+        </li>
+      </ul>
+      <h3>💰 How You Get Compensated</h3>
+      <p>
+        Payment will be issued within <strong>30 business days</strong> of
+        completing the requirements.
+      </p>
+      <p>
+        Accepted payment methods:
+        <strong>{{ email_data.payment_methods }}</strong>
+      </p>
+      <p>
+        Additionally, you will receive
+        <strong>{{ email_data.additional_compensation }}</strong>.
+      </p>
+
+      {% if email_data.platform_requirements %} {% for platform in
+      email_data.platform_requirements %}
+      <h3>
+        {{ platform_icons.get(platform.platform_name, "📷") }} {{
+        platform.platform_name }} Collaboration Requirements
+      </h3>
+      <ul>
+        {% if platform.platform_name == "Instagram" %} {% if
+        platform.post_deadline_weeks %}
+        <li>
+          Post within
+          <strong>{{ platform.post_deadline_weeks }} weeks</strong> of
+          selection.
+        </li>
+        {% endif %} {% if platform.num_feed_reels %}
+        <li><strong>{{ platform.num_feed_reels }}</strong> In-Feed Reel</li>
+        {% endif %} {% if platform.num_stories %}
+        <li><strong>{{ platform.num_stories }}</strong> Instagram Stories</li>
+        {% endif %} {% if platform.hashtags %}
+        <li>Hashtags to use: <strong>{{ platform.hashtags }}</strong></li>
+        {% endif %} {% if platform.account_tags %}
+        <li>
+          Account needs to be tagged:
+          <strong>{{ platform.account_tags }}</strong>
+        </li>
+        {% endif %} {% if platform.bio_link %}
+        <li>
+          Link should be added in bio: <strong>{{ platform.bio_link }}</strong>
+        </li>
+        {% endif %} {% if platform.do_not_delete_days %}
+        <li>
+          Do not delete content within
+          <strong>{{ platform.do_not_delete_days }} days</strong> of posting.
+        </li>
+        {% endif %} {% elif platform.platform_name == "TikTok" %} {% if
+        platform.post_deadline_weeks %}
+        <li>
+          Post within
+          <strong>{{ platform.post_deadline_weeks }} weeks</strong> of
+          selection.
+        </li>
+        {% endif %} {% if platform.num_videos %}
+        <li><strong>{{ platform.num_videos }}</strong> TikTok Videos</li>
+        {% endif %} {% if platform.hashtags %}
+        <li>Hashtags to use: <strong>{{ platform.hashtags }}</strong></li>
+        {% endif %} {% if platform.account_tags %}
+        <li>
+          Account needs to be tagged:
+          <strong>{{ platform.account_tags }}</strong>
+        </li>
+        {% endif %} {% if platform.bio_link %}
+        <li>
+          Link should be added in bio: <strong>{{ platform.bio_link }}</strong>
+        </li>
+        {% endif %} {% endif %}
+      </ul>
+      {% endfor %} {% else %}
+      <p><strong>Platform requirements not found.</strong></p>
+      {% endif %}
+
+      <h3>📌 Content Guidelines</h3>
+      <ul>
+        <li>
+          Share your <strong>personal experience</strong> using the product.
+        </li>
+        <li>Highlight benefits gained.</li>
+        <li>Encourage downloads via promo code or link.</li>
+      </ul>
+
+      <p>
+        The goal is to
+        <strong
+          >{{ email_data.marketing_goal if email_data.marketing_goal !=
+          default_marketing_goal else default_marketing_goal }}</strong
+        >. The more activity you generate, the more potential opportunities you
+        will have for future collaborations! 🚀
+      </p>
+
+      <p>
+        <strong
+          >Confirm your participation and upload your video for approval using
+          the link below:</strong
+        >
+      </p>
+      <p>
+        <a
+          class="button"
+          href="{{ email_data.submission_link }}"
+          target="_blank"
+          >Upload Your Video</a
+        >
+      </p>
+      <p>If you have any questions, feel free to reply to this email.</p>
+      <p>Looking forward to collaborating with you!</p>
+
+      <p>
+        Best,<br />
+        <strong>{{ email_data.brand_team_name }}</strong><br />
+        {{ email_data.brand_email }}
+      </p>
+      <div class="footer">
+        &copy; {{ current_year }} {{ email_data.brand_name }} | All rights
+        reserved.
+      </div>
+    </div>
+  </body>
+</html>

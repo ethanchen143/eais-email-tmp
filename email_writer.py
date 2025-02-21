@@ -4,7 +4,12 @@ import copy
 import os
 import tiktoken
 import requests
+import datetime
 from requests.exceptions import Timeout
+<<<<<<< Updated upstream
+=======
+from jinja2 import Environment, FileSystemLoader
+>>>>>>> Stashed changes
 from dotenv import load_dotenv
 from pymongo import MongoClient
 load_dotenv()
@@ -21,6 +26,14 @@ client = MongoClient(MONGODB_URI)
 db = client[MONGODB_DATABASE_NAME]
 generated_emails_collection = db["generated_emails"]  
 leads_collection = db["leads"]  
+
+PLATFORM_ICONS = {
+    "Instagram": "📸", 
+    "TikTok": "🎵",  
+    "YouTube": "📺",  
+    "Facebook": "📘",  
+    "Twitter": "🐦", # "✖️"
+}
 
 class GptOperations:
     max_tokens = 2000
@@ -146,7 +159,127 @@ class EmailWriter:
         except Exception as e:
             print(f"Error in generate_email: {str(e)}")  
             return False  
-        
+    
+    def generate_offer_email(self, email_data: dict):
+        # Load Jinja2 environment from 'templates' folder
+        env = Environment(loader=FileSystemLoader("templates"))  
+        template = env.get_template("offer_template.html")
+
+        # Set default marketing goal
+        default_marketing_goal = "drive engagement and downloads"
+
+        # Render template with data
+        email_html = template.render(
+            email_data=email_data,
+            platform_icons=PLATFORM_ICONS,
+            default_marketing_goal=default_marketing_goal,
+            current_year=datetime.datetime.now().year
+        )
+
+        return {"status": True, "offer_html": email_html}
+    # def generate_offer_email( self,email_data: dict):
+    #     email_html = f"""
+    #     <html>
+    #     <body>
+    #         <div class="container">
+    #             <h2>Influencer Collaboration Offer</h2>
+    #             <p>Hi {email_data["influencer_name"]},</p>
+    #             <p>We are excited to invite you to our influencer campaign for <span class="highlight">{email_data["brand_name"]}</span>. As part of this collaboration, we’d love for you to create a product review video showcasing:</p>
+    #             <ul>
+    #                 <li>At least <strong>{email_data["num_selling_points"]}</strong> selling points: <em>{email_data["selling_points"]}</em></li>
+    #                 <li>How you got the product: {email_data["product_delivery_method"]}</li>
+    #             </ul>
+    #             <h3>💰 How You Get Compensated</h3>
+    #             <p>Payment will be issued within <strong>30 business days</strong> of completing the requirements.</p>
+    #             <p>Accepted payment methods: <strong>{email_data["payment_methods"]}</strong></p>
+    #             <p>Additionally, you will receive <strong>{email_data["additional_compensation"]}</strong>.</p>
+    #     """
+
+    #     # Insert platform-specific requirements if they exist
+    #     if "platform_requirements" in email_data:
+    #         for platform in email_data["platform_requirements"]:
+    #             platform_icon = PLATFORM_ICONS.get(platform["platform_name"])
+    #             email_html += f"""
+    #             <h3>{platform_icon}{platform["platform_name"]} Collaboration Requirements</h3>
+    #             <ul>
+    #             """
+    #             if platform["platform_name"] == "Instagram":
+    #                 if "post_deadline_weeks" in platform:
+    #                     email_html += f'<li>Post within <strong>{platform["post_deadline_weeks"]} weeks</strong> of selection.</li>'
+
+    #                 if "num_feed_reels" in platform:
+    #                     email_html += f'<li><strong>{platform["num_feed_reels"]}</strong> In-Feed Reel</li>'
+
+    #                 if "num_stories" in platform:
+    #                     email_html += f'<li><strong>{platform["num_stories"]}</strong> Instagram Stories</li>'
+
+    #                 if "hashtags" in platform:
+    #                     email_html += f'<li>Hashtags to use: <strong>{platform["hashtags"]}</strong></li>'
+
+    #                 if "account_tags" in platform:
+    #                     email_html += f'<li>Account need to be tagged: <strong>{platform["account_tags"]}</strong></li>'
+                    
+    #                 if"bio_link" in platform:
+    #                     email_html += f'<li>Link should be add in bio: <strong>{platform["bio_link"]}</strong></li>'
+
+    #                 if "do_not_delete_days" in platform:
+    #                     email_html += f'<li>Do not delete content within <strong>{platform["do_not_delete_days"]} days</strong> of posting.</li>'
+
+    #                 email_html += "</ul>"
+    #             elif platform["platform_name"] == "TikTok":
+    #                 if "post_deadline_weeks" in platform:
+    #                     email_html += f'<li>Post within <strong>{platform["post_deadline_weeks"]} weeks</strong> of selection.</li>'
+
+    #                 if "num_videos" in platform:
+    #                     email_html += f'<li><strong>{platform["num_videos"]}</strong> TikTok Videos</li>'
+
+    #                 if "hashtags" in platform:
+    #                     email_html += f'<li>Hashtags to use: <strong>{platform["hashtags"]}</strong></li>'
+                                       
+    #                 if "account_tags" in platform:
+    #                     email_html += f'<li>Account need to be tagged: <strong>{platform["account_tags"]}</strong></li>'
+
+    #                 if"bio_link" in platform:
+    #                     email_html += f'<li>Link should be add in bio: <strong>{platform["bio_link"]}</strong></li>'
+
+                    
+    #                 email_html += "</ul>"
+    #     else:
+    #         return {"status": False, "message": "Platform requirements not found in email data."}
+            
+
+    #     email_html += f"""
+    #             <h3>📌 Content Guidelines</h3>
+    #             <ul>
+    #                 <li>Share your <strong>personal experience</strong> using the product.</li>
+    #                 <li>Highlight benefits gained.</li>
+    #                 <li>Encourage downloads via promo code or link.</li>
+    #             </ul>"""
+    #     Default_Marketing_Goal = "drive engagement and downloads"
+    #     if email_data["marketing_goal"] != Default_Marketing_Goal:
+    #         email_html += f"""<p>The goal is to <strong>{email_data["marketing_goal"]}</strong>. The more activity you generate, the more potential opportunities you will have for future collaborations! 🚀</p>"""
+    #     else:
+    #         email_html +=f"""<p>The goal is to <strong>drive engagement and downloads</strong>. The more activity you generate, the more potential opportunities you will have for future collaborations! 🚀</p>"""
+    #     email_html += f"""        
+    #             <p><strong>Confirm your participation and upload your video for approval using the link below:</strong></p>
+    #             <p><a class="button" href="{email_data["submission_link"]}" target="_blank">Upload Your Video</a></p>
+    #             <p>If you have any questions, feel free to reply to this email.</p>
+    #             <p>Looking forward to collaborating with you!</p>
+    #             <p>Best,<br>
+    #             <strong>{email_data["brand_team_name"]}</strong><br>
+    #             {email_data["brand_email"]}</p>
+    #             <div class="footer">
+    #             &copy; {datetime.datetime.now().year} {email_data["brand_name"]} | All rights reserved.
+    #             </div>
+    #         </div>
+    #     </body>
+    #     </html>
+    #     """
+    
+    
+       
+    #     return {"status": True,"offer_html": email_html}
+   
 # DS_API_KEY = os.environ.get("DS_API_KEY")
 
 # class DeepSeekOperations:
