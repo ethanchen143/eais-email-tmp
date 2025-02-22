@@ -6,10 +6,7 @@ import tiktoken
 import requests
 import datetime
 from requests.exceptions import Timeout
-<<<<<<< Updated upstream
-=======
 from jinja2 import Environment, FileSystemLoader
->>>>>>> Stashed changes
 from dotenv import load_dotenv
 from pymongo import MongoClient
 load_dotenv()
