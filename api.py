@@ -15,6 +15,7 @@ from constants import get_keywords_prompt
 import aiofiles
 from pymongo import MongoClient
 from bson import ObjectId
+import asyncio
 
 load_dotenv()
 VERSION = "1.0.0"
@@ -102,8 +103,7 @@ def scrape_page(url):
 async def get_keywords(
     product_url: str = Query(...),
     brand_url: str = Query(...)
-):     
-
+):
     product_page = scrape_page(product_url)
     brand_page = scrape_page(brand_url)
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
@@ -133,7 +133,6 @@ async def add_campaign(
     if not email_title:
         email_title = "Hello {{firstName}}!"
     new_campaign_id = create_campaign(unique_name, email_title)['id']
-
 
     try:
             content = await file.read()
@@ -287,133 +286,63 @@ def add_leads_to_campaign(campaign_id: str):
 @app.post("/send_emails/")
 async def send_emails(campaign_id: str = Form(...)):
     campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id})
-    
     if campaign_data:
         add_leads_to_campaign(campaign_id)
         start_campaign(campaign_id)
-        
         campaigns_collection.update_one(
             {"campaign_id": campaign_id},
-            {"$set": {"status": "emailsent"}}
-        )
-        
+            {"$set": {"status": "emailsent"}})
         return {"status": True}
     else:
         return {"status": "Failed to send emails"}
-    
+
+def get_unread_emails(campaign_id):
+    url = "https://api.instantly.ai/api/v2/emails"
+    query = {
+    "limit": "10",
+    "campaign_id": "c8262413-40fc-4916-85d9-84fb7cb63692",
+    "is_unread": "true",
+    "email_type": "received"
+    }
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    response = requests.get(url, headers=headers, params=query)
+    return response.json()
+
+def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name):
+    # identify intent
+    # reply using email template
+    return None
+
+active_tasks = {}
+
+async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
+    while True:
+        emails = get_unread_emails(campaign_id)['items']
+        for email in emails:
+            body = email['body']['text']
+            influencer_email_address = email['from_address_json'][0]['address']
+            influencer_name = email['from_address_json'][0]['name']
+            marketer_email_address = email['to_address_json'][0]['address']
+            marketer_name = email['to_address_json'][0]['name']
+            handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name)
+        await asyncio.sleep(300)
+
 @app.post("/set_auto_reply/")
 async def set_auto_reply(campaign_id: str = Form(...),    
                           intents: List[str] = Form([]),  
                           responses: List[str] = Form([]) ):
-    return{}
+    if campaign_id in active_tasks:
+        active_tasks[campaign_id].cancel()
+    task = asyncio.create_task(auto_reply_process(campaign_id, intents, responses))
+    active_tasks[campaign_id] = task
+    return {"status": "Success", "message": f"Auto Reply started for Campaign {campaign_id}"}
 
 @app.post("/stop_auto_reply/")
-async def set_auto_reply(campaign_id: str = Form(...),    
-                          intents: List[str] = Form([]),  
-                          responses: List[str] = Form([]) ):
-    return{}
-
-# @app.post("/send_initial_emails/")
-# async def send_initial_emails(cm_name: str = Form(...)):
-    
-#     campaign_list = get_campaign_list(INS_API_KEY)
-#     campaign_id = get_campaign_id(campaign_list, cm_name)
-    
-#     campaign = redis_db.read(campaign_id)
-#     if campaign: 
-#         lead_list = []
-#         for prepared_email in campaign:
-#             email = list(prepared_email.keys())[0]
-#             user_data= {
-#                 "email": email,
-#                 "first_name": prepared_email[email]['first_name'],
-#                 "custom_variables": {
-#                     "Profile Link": prepared_email[email]['profile_link'],
-#                     "Username": prepared_email[email]['username'],
-#                     "Followers Count": prepared_email[email]['followers_count'],
-#                     "Full email":prepared_email[email]['full_email']
-#             }
-#             }
-#             lead_list.append(user_data)
-#         add_leads_to_campaign(INS_API_KEY, campaign_id, lead_list)
-#         return {"status": True}
-
-# @app.post("/receive_any_data/")
-# async def receive_any_data(request: Request):
-#     data = await request.json()
-#     if data["event_type"] == "reply_received" and data["is_first"]:
-#         campaign = redis_db.read(data["campaign_id"])
-#         if campaign:
-#             sent_email_info = email_exists_in_json(campaign, data["lead_email"], data["campaign_id"])
-#             if sent_email_info:
-#                 message = extract_most_recent_message(data['reply_html'])
-#                 if message:
-#                     respond_to_reply(data["lead_email"], message, data['email_account'], data['reply_subject'], data["campaign_id"])
-            
-#     return {"received_data": data}
-
-
-# def get_email_reply_uuid(api_key, campaign_id, email_id):
-#     url = (
-#         f"https://api.instantly.ai/api/v1/unibox/emails?"
-#         f"api_key={api_key}&preview_only=true&campaign_id={campaign_id}"
-#         f"&email_type=received&lead={email_id}&latest_of_thread=true"
-#     )
-
-#     headers = {
-#         'Content-Type': 'application/json'
-#     }
-    
-#     response = requests.get(url, headers=headers)
-    
-#     return json.loads(response.text)['data'][0]['id']
-
-# def send_email_reply(api_key, reply_to_uuid, subject, from_email, to_email, body):
-#     url = f"https://api.instantly.ai/api/v1/unibox/emails/reply?api_key={api_key}"
-    
-#     payload = json.dumps({
-#         "reply_to_uuid": reply_to_uuid,
-#         "subject": subject,
-#         "from": from_email,
-#         "to": to_email,
-#         "body": body,
-#     })
-    
-#     headers = {
-#         'Content-Type': 'application/json'
-#     }
-    
-#     response = requests.post(url, headers=headers, data=payload)
-    
-#     return response.text
-
-# def get_reply_uuid_and_respoond(subject, from_email, to_email, body, campaign_id):
-#     reply_uuid = get_email_reply_uuid(INS_API_KEY, campaign_id, to_email)
-#     send_email_reply(INS_API_KEY, reply_uuid, subject, from_email, to_email, body)
-
-# def extract_most_recent_message(html_content):
-#     soup = BeautifulSoup(html_content, 'html.parser')
-#     # Find the first 'div' with dir='ltr' that is not inside a 'gmail_quote' div
-#     recent_message = None
-#     for div in soup.find_all('div', dir='ltr'):
-#         if 'gmail_quote' not in div.get('class', []):
-#             recent_message = div
-#             break
-
-#     # Extract the text from the found div
-#     if recent_message:
-#         recent_message_text = recent_message.get_text(strip=True)
-#         return recent_message_text
-#     else:
-#         return None
-
-# def email_exists_in_json(sent_emails, email, campaign_id):
-#     for item in sent_emails:
-#         if email in item:
-#             return True
-#     return False
-
-# def respond_to_reply(lead_email, message, sent_via, reply_subject, campaign_id):
-#     response_to_reply = email_writer_module.respond_to_reply(lead_email, campaign_id, message)
-#     if response_to_reply:
-#         get_reply_uuid_and_respoond(reply_subject, sent_via, lead_email, response_to_reply, campaign_id)
+async def set_auto_reply(campaign_id: str = Form(...)):
+    task = active_tasks.pop(campaign_id, None)
+    if task:
+        task.cancel()
+        return {"status": "Success", "message": f"Auto Reply stopped for Campaign {campaign_id}"}
+    return {"status": "Fail", "message": f"No auto reply process found for Campaign {campaign_id}"}
