@@ -86,17 +86,21 @@ def create_campaign(campaign_name, email_title):
 async def root():
     return {"Version": VERSION}
 
+from scrapingbee import ScrapingBeeClient
+SCRAPING_KEY = os.environ.get("SCRAPING_KEY")
+
 def scrape_page(url):
     url = url.strip('/')
+    client = ScrapingBeeClient(api_key=SCRAPING_KEY)
     try:
-        response = requests.get(url)
+        response = client.get(url)
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"Failed to retrieve {url}: {e}")
         return
     soup = BeautifulSoup(response.content, 'html.parser')
     page_text = soup.get_text(separator='\n').strip()
-    page_text = page_text.replace('\n','').replace(' ','')
+    page_text = page_text.replace('\n', '').replace(' ', '')
     return page_text
 
 @app.get("/get_keywords")
@@ -106,6 +110,8 @@ async def get_keywords(
 ):
     product_page = scrape_page(product_url)
     brand_page = scrape_page(brand_url)
+    print(product_page)
+    print(brand_page)
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
         brand = brand_page, product = product_page
     )
@@ -310,7 +316,7 @@ def get_unread_emails(campaign_id):
     response = requests.get(url, headers=headers, params=query)
     return response.json()
 
-def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name):
+def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name, intents, responses):
     # identify intent
     # reply using email template
     return None
@@ -326,7 +332,7 @@ async def auto_reply_process(campaign_id: str, intents: List[str], responses: Li
             influencer_name = email['from_address_json'][0]['name']
             marketer_email_address = email['to_address_json'][0]['address']
             marketer_name = email['to_address_json'][0]['name']
-            handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name)
+            handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name, intents, responses)
         await asyncio.sleep(300)
 
 @app.post("/set_auto_reply/")

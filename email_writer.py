@@ -7,6 +7,7 @@ import requests
 from requests.exceptions import Timeout
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import json
 load_dotenv()
 
 GPT_API_KEY = os.environ.get("GPT_API_KEY")
@@ -105,7 +106,6 @@ class EmailWriter:
         pitch_response_full_email, status = self.gpt_ops.call_gpt_openai_json(prompt=generate_pitch_prompt_for_gpt,model="gpt-4o-mini")
         return pitch_response_full_email
 
-    
     def generate_email(self, campaign_id, email_template):
         try:
             # Fetch leads from MongoDB instead of reading a CSV
@@ -146,6 +146,53 @@ class EmailWriter:
         except Exception as e:
             print(f"Error in generate_email: {str(e)}")  
             return False  
+        
+    # def get_intent(self, message):
+    #     reply_intent_prompt_for_gpt = copy.deepcopy(reply_intent_prompt).format(
+    #         user_message = message
+    #     )
+    #     reply_intent_response, status = self.ds_ops.call_gpt_openai_json(prompt=reply_intent_prompt_for_gpt,model="gpt-4o")
+    #     reply_intent_response = json.loads(reply_intent_response)
+    #     return reply_intent_response['intent']
+
+    # def seeking_human_for_other_task_response(self, message):
+    #     human_needed_prompt_for_gpt = copy.deepcopy(human_needed_prompt).format(
+    #         influencer_response = message
+    #     )
+    #     reply_response, status = self.ds_ops.call_gpt_openai_json(prompt=human_needed_prompt_for_gpt,model="gpt-4o")
+    #     reply_response = json.loads(reply_response)
+    #     return reply_response['message']
+
+    # def respond_to_reply(self, email_id, campaign_id, message):
+    #     campaingn = self.redis_db.read(campaign_id)
+    #     if campaingn:
+    #         message_intent = self.get_intent(message)
+    #         lead_index = self.get_email_index(campaingn, email_id)
+    #         first_name = campaingn[lead_index][email_id]['influencer name'].split(' ')[0].title()
+    #         response = False
+    #         if message_intent == "paid_collaboration":
+    #             response = copy.deepcopy(paid_collaboration_response).format(lead_name = first_name)
+    #         elif message_intent == "program_inquiry":
+    #             response = copy.deepcopy(program_inquiry_response).format(lead_name = first_name)
+    #         elif message_intent == "next_steps":
+    #             response = copy.deepcopy(next_steps_response).format(lead_name = first_name)
+    #         elif message_intent == "product_request":
+    #             response = copy.deepcopy(product_request_response).format(lead_name = first_name)
+    #         elif message_intent == "other":
+    #             response = self.seeking_human_for_other_task_response(message=message)
+    #         else:
+    #             return False
+    #         if "replies" not in campaingn[lead_index][email_id]:
+    #             campaingn[lead_index][email_id]['replies'] = []
+    #         reply = {
+    #             'recieved_reply': message,
+    #             'reply_intent': message_intent,
+    #             'sent_reply': response,
+    #         }
+    #         campaingn[lead_index][email_id]['replies'].append(reply)      
+    #         self.redis_db.write(campaign_id, campaingn)
+    #         return response
+    #     return False
         
 # DS_API_KEY = os.environ.get("DS_API_KEY")
 
