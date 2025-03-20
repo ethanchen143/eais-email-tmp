@@ -13,3 +13,4 @@ python-multipart
 bs4
 pymongo>=4.7.0
 scrapingbee
+openai
