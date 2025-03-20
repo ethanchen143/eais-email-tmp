@@ -177,7 +177,6 @@ async def add_campaign(
         "generated_email_path": ""
     }
     
-    
     # Insert into MongoDB
     #campaigns_collection.insert_one(campaign_data)
     result = campaigns_collection.insert_one(campaign_data)
@@ -210,7 +209,6 @@ async def generate_emails(campaign_id: str = Form(...),):
     else:
         return {"status": "Failed to generate emails"}
 
-
 @app.get("/campaign/get_emails/{campaign_id}")
 def get_emails(campaign_id: str):
     
@@ -223,7 +221,7 @@ def get_emails(campaign_id: str):
 
 @app.post("/campaign/update_emails/{campaign_id}")
 def update_emails(campaign_id: str, emails: list[dict]):
-    
+
     # Update the emails in MongoDB (overwrite the existing "data" field)
     result = generated_emails_collection.update_one(
         {"campaign_id": campaign_id},
@@ -249,7 +247,6 @@ def start_campaign(id):
     return response.json()
 
 def add_leads_to_campaign(campaign_id: str):
- 
     campaign_emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0, "data": 1})
     if not campaign_emails or "data" not in campaign_emails:
         raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
@@ -302,19 +299,289 @@ async def send_emails(campaign_id: str = Form(...)):
     else:
         return {"status": "Failed to send emails"}
 
-def get_unread_emails(campaign_id):
+def get_unread_emails():
+    # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-    "limit": "10",
-    "campaign_id": "c8262413-40fc-4916-85d9-84fb7cb63692",
-    "is_unread": "true",
-    "email_type": "received"
+        "limit": "100",
+        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159",
+        # "is_unread": "true",
+        "ai_interest_value": 0.75,
+        "i_status": 1,
+        "email_type": "received"
     }
     headers = {
         'Authorization': f'Bearer {INS_API_KEY}',
     }
-    response = requests.get(url, headers=headers, params=query)
-    return response.json()
+    
+    try:
+        response = requests.get(url, headers=headers, params=query)
+        response.raise_for_status()  # Raise exception for non-200 status codes
+        return response.json()
+    except requests.RequestException as e:
+        print(f"API request failed: {e}")
+        return {"data": []}
+
+from datetime import datetime 
+
+def format_date(timestamp_str):
+    """Convert ISO timestamp to a more readable format"""
+    try:
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return timestamp.strftime("%A, %b %d, %Y at %I:%M %p")
+    except ValueError:
+        # Fallback if parsing fails
+        return timestamp_str
+
+### CHUBBY GROUP INBOX CODE ###
+
+# TODO: update to chubby group's campaign id
+# TODO: when user replies, set the email's "is_read" to true, avoid double replying
+
+import json
+import os
+from chubby import extract_influencer_response, extract_restaurant_labels
+
+# File to store the cache
+CACHE_FILE = "email_status_cache.json"
+
+def load_cache():
+    """Load the email status cache from file"""
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            # If the file is corrupted, start with a fresh cache
+            return {}
+    return {}
+
+def save_cache(cache):
+    """Save the email status cache to file"""
+    with open(CACHE_FILE, 'w') as f:
+        json.dump(cache, f, indent=2)
+
+def get_email_status(email_id, body_content, cache=None):
+    """Get the email status, either from cache or by processing it"""
+    if cache is None:
+        cache = load_cache()
+    # Check if the email ID is in the cache
+    if str(email_id) in cache:
+        return cache[str(email_id)]
+    print('generating labels with gpt')
+    # If not in cache, process the email
+    influencer_response = extract_influencer_response(body_content)
+    restaurant_label = extract_restaurant_labels(influencer_response)
+    # Store in cache
+    cache[str(email_id)] = restaurant_label
+    save_cache(cache)
+    return restaurant_label
+
+@app.post("/get_emails_chubby/")
+async def get_emails_chubby():
+    # Fetch emails from Instantly.ai API
+    raw_emails_response = get_unread_emails()
+    raw_emails = raw_emails_response.get("items", [])
+    
+    # Load the cache once for the entire request
+    cache = load_cache()
+    transformed_emails = []
+    
+    for idx, email in enumerate(raw_emails):
+        # Extract the body content - prefer plain text for simplicity
+        body_content = ""
+        if "body" in email:
+            if isinstance(email["body"], dict):
+                body_content = email["body"].get("text", email["body"].get("html", ""))
+            else:
+                body_content = str(email["body"])
+        
+        # For demo, using sample content
+        body_content = """
+        Subject: Re: Collaboration Opportunity
+        
+        Hi there,
+        Thanks for reaching out about the collaboration. I'm interested in working with Chubby Cattle Las Vegas and maybe the X Pot too.
+        
+        Best,
+        Influencer
+        
+        On Mon, Mar 17, 2025 at 10:00 AM, Team <team@company.com> wrote:
+        > Hi Influencer,
+        > We're excited to offer you a collaboration opportunity with Chubby Group...
+        """
+        
+        # Format the date
+        date_str = format_date(email.get("timestamp_email", email.get("timestamp_created", "")))
+        
+        # Get ID with fallback to index
+        email_id = email.get("id") or idx + 1
+        
+        # Get status from cache or process it
+        restaurant_label = get_email_status(email_id, body_content, cache)
+        
+        # Map Instantly.ai fields to your frontend model
+        transformed_email = {
+            "id": email_id,
+            "from": email.get("from_address_email", ""),
+            "to": email.get("to_address_email_list", ""),
+            "subject": email.get("subject", ""),
+            "date": date_str,
+            "status": restaurant_label,
+            "body": body_content,
+            "campaign": "Chubby Group Mega Campaign",
+            "replies": []  # Initialize with empty replies
+        }
+        transformed_emails.append(transformed_email)
+    
+    # Return the transformed emails with CORS headers
+    return transformed_emails
+
+from pydantic import BaseModel
+
+class LabelModificationRequest(BaseModel):
+    email_id: str
+    new_label: str
+    
+@app.post("/modify_email_label/")
+async def modify_email_label(request: LabelModificationRequest):
+    """
+    Modifies the label and/or campaign of an email and updates the cache.
+    
+    Parameters:
+    - email_id: The ID of the email to modify
+    - new_label: The new restaurant label to assign
+    - campaign: Optional campaign to assign to the email
+    
+    Returns:
+    - Dictionary with success message and updated email details
+    """
+    try:
+        email_id_str = str(request.email_id)
+        
+        # Update label cache
+        label_cache = load_cache()
+        label_cache[email_id_str] = request.new_label
+        save_cache(label_cache)
+                
+        # Build response
+        response = {
+            "success": True,
+            "message": "Email updated successfully",
+            "email_id": request.email_id,
+            "new_label": request.new_label
+        }
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating email: {str(e)}"
+        )
+
+
+from typing import Optional, Dict, Union, Any
+class EmailReplyRequest(BaseModel):
+    reply_to_uuid: str
+    subject: str
+    body: Dict[str, str]  # Can contain "html", "text" or both
+    cc_address_email_list: Optional[str] = None
+    bcc_address_email_list: Optional[str] = None
+    eaccount: Optional[str] = None  # If None, will use the authenticated user's email
+
+
+@app.post("/reply_to_email")
+async def reply_to_email(request: EmailReplyRequest):
+    """
+    Reply to an existing email using the Instantly.ai API.
+    
+    Args:
+        reply_to_uuid: The ID of the email to reply to
+        subject: Subject line for the reply
+        body: Dict containing "html" and/or "text" fields
+        cc_address_email_list: Optional comma-separated list of CC email addresses
+        bcc_address_email_list: Optional comma-separated list of BCC email addresses
+        eaccount: Optional email account to use (if not provided, will use default)
+    
+    Returns:
+        The API response from Instantly.ai
+    """
+    try:
+        # Prepare the request payload
+        payload = {
+            "reply_to_uuid": request.reply_to_uuid,
+            "subject": request.subject,
+            "body": request.body
+        }
+        
+        # Add optional fields if they exist
+        if request.cc_address_email_list:
+            payload["cc_address_email_list"] = request.cc_address_email_list
+        
+        if request.bcc_address_email_list:
+            payload["bcc_address_email_list"] = request.bcc_address_email_list
+        
+        # If eaccount is provided, use it; otherwise fetch a sending account
+        if request.eaccount:
+            payload["eaccount"] = request.eaccount
+        else:
+            # Get the first available sending account
+            sending_accounts = fetch_sending_accounts()
+            if not sending_accounts.get("items"):
+                raise HTTPException(status_code=400, detail="No sending accounts available")
+            
+            payload["eaccount"] = sending_accounts["items"][0]["email"]
+        
+        # Call the Instantly.ai API
+        url = "https://api.instantly.ai/api/v2/emails/reply"
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {INS_API_KEY}'
+        }
+        
+        response = requests.post(url, headers=headers, json=payload)
+        
+        # Check for errors
+        if response.status_code != 200:
+            return {
+                "status": False,
+                "message": f"API Error: {response.status_code}",
+                "details": response.json()
+            }
+        
+        # Return success response
+        return {
+            "status": True,
+            "message": "Email reply sent successfully",
+            "data": response.json()
+        }
+        
+    except Exception as e:
+        return {
+            "status": False,
+            "message": f"Error sending reply: {str(e)}"
+        }
+
+# Forward email functionality (similar to reply but with different formatting)
+@app.post("/forward_email")
+async def forward_email(request: EmailReplyRequest):
+    """
+    Forward an existing email using the reply API endpoint.
+    
+    This endpoint is similar to reply_to_email but formats the email
+    as a forward instead of a reply.
+    """
+    # The implementation is essentially the same as reply_to_email
+    # but we might format the subject differently (add "Fwd: " prefix)
+    if not request.subject.startswith("Fwd:"):
+        request.subject = f"Fwd: {request.subject}"
+    
+    # Call the reply endpoint with the forward formatting
+    return await reply_to_email(request)
+
+### AUTO REPLY CODE ###
+
 
 def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name, intents, responses):
     # identify intent
