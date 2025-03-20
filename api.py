@@ -322,7 +322,7 @@ def get_unread_emails():
         print(f"API request failed: {e}")
         return {"data": []}
 
-from datetime import datetime 
+from datetime import datetime, timedelta
 
 def format_date(timestamp_str):
     """Convert ISO timestamp to a more readable format"""
@@ -437,8 +437,102 @@ async def get_emails_chubby():
     # Return the transformed emails with CORS headers
     return transformed_emails
 
-from pydantic import BaseModel
 
+@app.get("/get_email_stats_chubby/")
+async def get_email_stats_chubby():
+    """
+    Get statistics about positive replies/opportunities with day-by-day 
+    accumulative data based on actual email received dates.
+    
+    Returns:
+        Statistics with real data for positive replies and dummy data for other metrics
+    """
+    try:
+        # Fetch all emails
+        raw_emails_response = get_unread_emails()
+        raw_emails = raw_emails_response.get("items", [])
+        
+        # Get the timestamp of each email and track positive replies by date
+        email_dates = {}
+        
+        for email in raw_emails:
+            # Extract the email timestamp (use timestamp_email or timestamp_created)
+            timestamp_str = email.get("timestamp_email", email.get("timestamp_created", ""))
+            
+            if not timestamp_str:
+                continue  # Skip emails without a timestamp
+                
+            # Parse the timestamp to a datetime object
+            try:
+                timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+                date_str = timestamp.strftime("%Y-%m-%d")
+                
+                # Count each email as a positive reply (simplified version)
+                if date_str not in email_dates:
+                    email_dates[date_str] = 0
+                email_dates[date_str] += 1
+                
+            except (ValueError, TypeError):
+                # Skip emails with invalid timestamp format
+                continue
+        
+        # Generate timeline data for the last 30 days
+        today = datetime.now()
+        timelineData = []
+        
+        # Track cumulative count
+        cumulative_count = 0
+        
+        # Create a sorted list of dates for the last 30 days
+        date_range = []
+        for i in range(30):
+            date = today - timedelta(days=29-i)
+            date_str = date.strftime("%Y-%m-%d")
+            date_range.append(date_str)
+        
+        # Build accumulative timeline
+        for date_str in date_range:
+            # Add any new emails from this date
+            if date_str in email_dates:
+                cumulative_count += email_dates[date_str]
+            
+            # Add data point to timeline
+            timelineData.append({
+                "date": date_str,
+                "positiveReplies": cumulative_count,
+                # Generate dummy data for other metrics based on the real positive replies count
+                "videosInProgress": max(0, round(cumulative_count * 0.6)),
+                "videosUploaded": max(0, round(cumulative_count * 0.3)),
+                "commissionSent": max(0, round(cumulative_count * 0.15))
+            })
+        
+        # Return the stats
+        return {
+            "stats": {
+                "positiveReplies": cumulative_count,  # Total accumulative count
+                # Scale dummy data based on real positive replies
+                "videosInProgress": max(0, round(cumulative_count * 0.6)),
+                "videosUploaded": max(0, round(cumulative_count * 0.3)),
+                "commissionSent": max(0, round(cumulative_count * 0.15)),
+                "timelineData": timelineData
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error getting email stats: {e}")
+        return {
+            "stats": {
+                "positiveReplies": 0,
+                "videosInProgress": 0,
+                "videosUploaded": 0,
+                "commissionSent": 0,
+                "timelineData": []
+            },
+            "error": str(e)
+        }
+
+
+from pydantic import BaseModel
 class LabelModificationRequest(BaseModel):
     email_id: str
     new_label: str
@@ -479,6 +573,10 @@ async def modify_email_label(request: LabelModificationRequest):
             status_code=500,
             detail=f"Error updating email: {str(e)}"
         )
+
+
+
+
 
 
 from typing import Optional, Dict, Union, Any
@@ -580,8 +678,9 @@ async def forward_email(request: EmailReplyRequest):
     # Call the reply endpoint with the forward formatting
     return await reply_to_email(request)
 
-### AUTO REPLY CODE ###
 
+
+### AUTO REPLY CODE ###
 
 def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name, intents, responses):
     # identify intent
