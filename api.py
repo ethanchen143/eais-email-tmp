@@ -86,21 +86,38 @@ def create_campaign(campaign_name, email_title):
 async def root():
     return {"Version": VERSION}
 
-from scrapingbee import ScrapingBeeClient
-SCRAPING_KEY = os.environ.get("SCRAPING_KEY")
+# from scrapingbee import ScrapingBeeClient
+# SCRAPING_KEY = os.environ.get("SCRAPING_KEY")
+
+# def scrape_page(url):
+#     url = url.strip('/')
+#     client = ScrapingBeeClient(api_key=SCRAPING_KEY)
+#     try:
+#         response = client.get(url)
+#         response.raise_for_status()
+#     except Exception as e:
+#         print(f"Failed to retrieve {url}: {e}")
+#         return
+#     soup = BeautifulSoup(response.content, 'html.parser')
+#     page_text = soup.get_text(separator='\n').strip()
+#     page_text = page_text.replace('\n', '').replace(' ', '')
+#     return page_text
 
 def scrape_page(url):
     url = url.strip('/')
-    client = ScrapingBeeClient(api_key=SCRAPING_KEY)
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    
     try:
-        response = client.get(url)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
     except Exception as e:
         print(f"Failed to retrieve {url}: {e}")
         return
+    
     soup = BeautifulSoup(response.content, 'html.parser')
     page_text = soup.get_text(separator='\n').strip()
     page_text = page_text.replace('\n', '').replace(' ', '')
+    
     return page_text
 
 @app.get("/get_keywords")
