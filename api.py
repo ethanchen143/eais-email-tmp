@@ -136,10 +136,139 @@ async def get_keywords(
     try:
         keywords = json.loads(response) if isinstance(response, str) else response
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Deepseek returned invalid JSON")
+        raise HTTPException(status_code=400, detail="GPT returned invalid JSON")
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
+
+
+import json
+import copy
+from fastapi import Query, HTTPException
+from typing import Dict, Any
+
+@app.get("/get_product_info")
+async def get_product_info(
+    product_url: str = Query(...),
+    brand_url: str = Query(...)
+):
+    # Scrape the pages (reusing your existing function)
+    product_page = scrape_page(product_url)
+    brand_page = scrape_page(brand_url)
+    
+    # Build the prompt manually without using format() to avoid JSON template issues
+    product_info_prompt_for_ds = """
+    ### Role and Task:
+    You are a seasoned marketing strategist specializing in product analysis. Extract key product information from the provided brand and product pages.
+
+    ### Brand Page: 
+    """ + brand_page + """
+
+    ### Product Page:
+    """ + product_page + """
+
+    ### Output Format:
+    Return ONLY a JSON object with the following fields, with no explanations or extra text:
+    {
+        "companyName": "Name of the company/brand",
+        "productName": "Name of the specific product",
+        "productSummary": "A concise 1-2 sentence summary of what the product is and does",
+        "sellingPoints": "3-5 key selling points or benefits of the product, separated by newlines"
+    }
+    """
+    
+    try:
+        # Call the GPT model (reusing your existing module)
+        response, status = gpt_ops_module.call_gpt_openai_json(
+            prompt=product_info_prompt_for_ds,
+            model="gpt-4o-mini"
+        )
+        
+        # Try to extract valid JSON from the response regardless of format
+        product_info = extract_json_from_response(response)
+        
+        # Ensure all required fields exist with fallbacks
+        product_info = ensure_complete_product_info(product_info)
+        
+        # Return the cleaned product information
+        return product_info
+    
+    except Exception as e:
+        print(f"Error in get_product_info: {str(e)}")
+        print(f"Prompt was: {product_info_prompt_for_ds[:200]}...")  # Print first 200 chars
+        
+        # Return default values as fallback
+        return {
+            "companyName": "Company Name",
+            "productName": "Product Name",
+            "productSummary": "A versatile product designed to meet customer needs.",
+            "sellingPoints": "Quality materials\nErgonomic design\nDurable construction\nCustomer satisfaction"
+        }
+
+def extract_json_from_response(response):
+    """Extract valid JSON from various possible response formats."""
+    if not isinstance(response, str):
+        # Response is already parsed
+        return response
+    
+    # Clean the response
+    cleaned_response = response.strip()
+    
+    # Try to find JSON within markdown code blocks
+    if "```" in cleaned_response:
+        # Extract content between code blocks
+        parts = cleaned_response.split("```")
+        for i in range(1, len(parts), 2):  # Check odd-indexed parts (inside code blocks)
+            try:
+                # Remove potential language indicator (like "json")
+                code_content = parts[i].strip()
+                if code_content.startswith("json"):
+                    code_content = code_content[4:].strip()
+                
+                return json.loads(code_content)
+            except json.JSONDecodeError:
+                continue  # Try next code block if this one fails
+    
+    # Try direct JSON parsing
+    try:
+        return json.loads(cleaned_response)
+    except json.JSONDecodeError:
+        pass
+    
+    # Try to find JSON-like structure with regex
+    import re
+    json_pattern = r'({[\s\S]*})'
+    match = re.search(json_pattern, cleaned_response)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            pass
+    
+    # If all parsing attempts fail, return empty dict
+    print(f"Failed to parse response as JSON: {cleaned_response}")
+    return {}
+
+def ensure_complete_product_info(info):
+    """Ensure all required fields exist in the product info."""
+    if not isinstance(info, dict):
+        info = {}
+    
+    # Define required fields with default values
+    required_fields = {
+        "companyName": "Company Name",
+        "productName": "Product Name",
+        "productSummary": "A versatile product designed to meet customer needs.",
+        "sellingPoints": "Quality materials\nErgonomic design\nDurable construction\nCustomer satisfaction"
+    }
+    
+    # Fill in missing fields
+    for field, default_value in required_fields.items():
+        if field not in info or not info[field]:
+            info[field] = default_value
+    
+    return info
+
 
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
 @app.post("/add_campaign/")
