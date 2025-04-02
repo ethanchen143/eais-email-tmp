@@ -103,22 +103,39 @@ async def root():
 #     page_text = page_text.replace('\n', '').replace(' ', '')
 #     return page_text
 
+from base64 import b64decode
+ZYTE_API_KEY = os.environ.get("ZYTE_API_KEY")
+
 def scrape_page(url):
-    url = url.strip('/')
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # url = url.strip('/')
+    # headers = {'User-Agent': 'Mozilla/5.0'}
     
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-    except Exception as e:
-        print(f"Failed to retrieve {url}: {e}")
-        return
+    # try:
+    #     response = requests.get(url, headers=headers)
+    #     response.raise_for_status()
+    # except Exception as e:
+    #     print(f"Failed to retrieve {url}: {e}")
+    #     return
     
-    soup = BeautifulSoup(response.content, 'html.parser')
-    page_text = soup.get_text(separator='\n').strip()
+    # soup = BeautifulSoup(response.content, 'html.parser')
+    # page_text = soup.get_text(separator='\n').strip()
+    # page_text = page_text.replace('\n', '').replace(' ', '')
+
+    api_response = requests.post(
+        "https://api.zyte.com/v1/extract",
+        auth=(ZYTE_API_KEY, ""),
+        json={"url": url, "httpResponseBody": True},
+    )
+    
+    http_response_body: bytes = b64decode(api_response.json()["httpResponseBody"])
+    soup = BeautifulSoup(http_response_body, 'html.parser')
+    
+    page_text = soup.get_text(separator='\n')
     page_text = page_text.replace('\n', '').replace(' ', '')
     
+    print(page_text)  # Debugging: Print cleaned text
     return page_text
+
 
 @app.get("/get_keywords")
 async def get_keywords(
