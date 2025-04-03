@@ -560,19 +560,19 @@ async def get_emails_chubby():
                 body_content = str(email["body"])
         
         # For demo, using sample content
-        body_content = """
-        Subject: Re: Collaboration Opportunity
+        # body_content = """
+        # Subject: Re: Collaboration Opportunity
         
-        Hi there,
-        Thanks for reaching out about the collaboration. I'm interested in working with Chubby Cattle Las Vegas and maybe the X Pot too.
+        # Hi there,
+        # Thanks for reaching out about the collaboration. I'm interested in working with Chubby Cattle Las Vegas and maybe the X Pot too.
         
-        Best,
-        Influencer
+        # Best,
+        # Influencer
         
-        On Mon, Mar 17, 2025 at 10:00 AM, Team <team@company.com> wrote:
-        > Hi Influencer,
-        > We're excited to offer you a collaboration opportunity with Chubby Group...
-        """
+        # On Mon, Mar 17, 2025 at 10:00 AM, Team <team@company.com> wrote:
+        # > Hi Influencer,
+        # > We're excited to offer you a collaboration opportunity with Chubby Group...
+        # """
         
         # Format the date
         date_str = format_date(email.get("timestamp_email", email.get("timestamp_created", "")))
