@@ -12,10 +12,11 @@ import copy
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from constants import get_keywords_prompt
-import aiofiles
 from pymongo import MongoClient
-from bson import ObjectId
 import asyncio
+import json
+from fastapi import Query, HTTPException
+from typing import Dict
 
 load_dotenv()
 VERSION = "1.0.0"
@@ -86,23 +87,6 @@ def create_campaign(campaign_name, email_title):
 async def root():
     return {"Version": VERSION}
 
-# from scrapingbee import ScrapingBeeClient
-# SCRAPING_KEY = os.environ.get("SCRAPING_KEY")
-
-# def scrape_page(url):
-#     url = url.strip('/')
-#     client = ScrapingBeeClient(api_key=SCRAPING_KEY)
-#     try:
-#         response = client.get(url)
-#         response.raise_for_status()
-#     except Exception as e:
-#         print(f"Failed to retrieve {url}: {e}")
-#         return
-#     soup = BeautifulSoup(response.content, 'html.parser')
-#     page_text = soup.get_text(separator='\n').strip()
-#     page_text = page_text.replace('\n', '').replace(' ', '')
-#     return page_text
-
 from base64 import b64decode
 ZYTE_API_KEY = os.environ.get("ZYTE_API_KEY")
 
@@ -133,7 +117,6 @@ def scrape_page(url):
     page_text = soup.get_text(separator='\n')
     page_text = page_text.replace('\n', '').replace(' ', '')
     
-    print(page_text)  # Debugging: Print cleaned text
     return page_text
 
 
@@ -157,12 +140,6 @@ async def get_keywords(
     if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
-
-
-import json
-import copy
-from fastapi import Query, HTTPException
-from typing import Dict, Any
 
 @app.get("/get_product_info")
 async def get_product_info(
@@ -285,6 +262,7 @@ def ensure_complete_product_info(info):
             info[field] = default_value
     
     return info
+
 
 
 """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
@@ -462,13 +440,15 @@ async def send_emails(campaign_id: str = Form(...)):
     else:
         return {"status": "Failed to send emails"}
 
+
+
 def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "100",
-        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159",
-        # "is_unread": "true",
+        "limit": "50",
+        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159", #change here
+        "is_unread": "true",
         "ai_interest_value": 0.75,
         "i_status": 1,
         "email_type": "received"
@@ -476,7 +456,27 @@ def get_unread_emails():
     headers = {
         'Authorization': f'Bearer {INS_API_KEY}',
     }
+    try:
+        response = requests.get(url, headers=headers, params=query)
+        response.raise_for_status()  # Raise exception for non-200 status codes
+        return response.json()
+    except requests.RequestException as e:
+        print(f"API request failed: {e}")
+        return {"data": []}
     
+def get_all_emails():
+    # Fetch emails from Instantly.ai API
+    url = "https://api.instantly.ai/api/v2/emails"
+    query = {
+        "limit": "50",
+        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159", #change here
+        "ai_interest_value": 0.75,
+        "i_status": 1,
+        "email_type": "received"
+    }
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
     try:
         response = requests.get(url, headers=headers, params=query)
         response.raise_for_status()  # Raise exception for non-200 status codes
@@ -543,7 +543,7 @@ def get_email_status(email_id, body_content, cache=None):
 @app.post("/get_emails_chubby/")
 async def get_emails_chubby():
     # Fetch emails from Instantly.ai API
-    raw_emails_response = get_unread_emails()
+    raw_emails_response = get_all_emails()
     raw_emails = raw_emails_response.get("items", [])
     
     # Load the cache once for the entire request
@@ -585,6 +585,7 @@ async def get_emails_chubby():
         
         # Map Instantly.ai fields to your frontend model
         transformed_email = {
+            "unread": email.get("is_unread",True),
             "id": email_id,
             "from": email.get("from_address_email", ""),
             "to": email.get("to_address_email_list", ""),
@@ -595,6 +596,7 @@ async def get_emails_chubby():
             "campaign": "Chubby Group Mega Campaign",
             "replies": []  # Initialize with empty replies
         }
+        
         transformed_emails.append(transformed_email)
     
     # Return the transformed emails with CORS headers
@@ -739,10 +741,7 @@ async def modify_email_label(request: LabelModificationRequest):
 
 
 
-
-
-
-from typing import Optional, Dict, Union, Any
+from typing import Optional, Dict
 class EmailReplyRequest(BaseModel):
     reply_to_uuid: str
     subject: str
@@ -750,7 +749,6 @@ class EmailReplyRequest(BaseModel):
     cc_address_email_list: Optional[str] = None
     bcc_address_email_list: Optional[str] = None
     eaccount: Optional[str] = None  # If None, will use the authenticated user's email
-
 
 @app.post("/reply_to_email")
 async def reply_to_email(request: EmailReplyRequest):
@@ -842,9 +840,7 @@ async def forward_email(request: EmailReplyRequest):
     return await reply_to_email(request)
 
 
-
 ### AUTO REPLY CODE ###
-
 def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name, intents, responses):
     # identify intent
     # reply using email template
@@ -854,7 +850,7 @@ active_tasks = {}
 
 async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
     while True:
-        emails = get_unread_emails(campaign_id)['items']
+        emails = get_unread_emails()['items']
         for email in emails:
             body = email['body']['text']
             influencer_email_address = email['from_address_json'][0]['address']
@@ -862,7 +858,7 @@ async def auto_reply_process(campaign_id: str, intents: List[str], responses: Li
             marketer_email_address = email['to_address_json'][0]['address']
             marketer_name = email['to_address_json'][0]['name']
             handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name, intents, responses)
-        await asyncio.sleep(300)
+        await asyncio.sleep(500)
 
 @app.post("/set_auto_reply/")
 async def set_auto_reply(campaign_id: str = Form(...),    
