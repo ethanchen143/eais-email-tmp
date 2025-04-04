@@ -442,6 +442,8 @@ async def send_emails(campaign_id: str = Form(...)):
 
 
 
+
+
 def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
@@ -499,7 +501,6 @@ def format_date(timestamp_str):
 ### CHUBBY GROUP INBOX CODE ###
 
 # TODO: update to chubby group's campaign id
-# TODO: when user replies, set the email's "is_read" to true, avoid double replying
 
 import json
 import os
@@ -559,25 +560,9 @@ async def get_emails_chubby():
             else:
                 body_content = str(email["body"])
         
-        # For demo, using sample content
-        # body_content = """
-        # Subject: Re: Collaboration Opportunity
-        
-        # Hi there,
-        # Thanks for reaching out about the collaboration. I'm interested in working with Chubby Cattle Las Vegas and maybe the X Pot too.
-        
-        # Best,
-        # Influencer
-        
-        # On Mon, Mar 17, 2025 at 10:00 AM, Team <team@company.com> wrote:
-        # > Hi Influencer,
-        # > We're excited to offer you a collaboration opportunity with Chubby Group...
-        # """
-        
         # Format the date
         date_str = format_date(email.get("timestamp_email", email.get("timestamp_created", "")))
-        
-        # Get ID with fallback to index
+    
         email_id = email.get("id") or idx + 1
         
         # Get status from cache or process it
@@ -587,6 +572,7 @@ async def get_emails_chubby():
         transformed_email = {
             "unread": email.get("is_unread",True),
             "id": email_id,
+            "thread_id":email.get("thread_id"),
             "from": email.get("from_address_email", ""),
             "to": email.get("to_address_email_list", ""),
             "subject": email.get("subject", ""),
@@ -744,6 +730,7 @@ async def modify_email_label(request: LabelModificationRequest):
 from typing import Optional, Dict
 class EmailReplyRequest(BaseModel):
     reply_to_uuid: str
+    thread_id: str
     subject: str
     body: Dict[str, str]  # Can contain "html", "text" or both
     cc_address_email_list: Optional[str] = None
@@ -753,74 +740,114 @@ class EmailReplyRequest(BaseModel):
 @app.post("/reply_to_email")
 async def reply_to_email(request: EmailReplyRequest):
     """
-    Reply to an existing email using the Instantly.ai API.
-    
+    Reply to an existing email using the Instantly.ai API and then mark the thread as read.
+
     Args:
         reply_to_uuid: The ID of the email to reply to
+        thread_id: The ID of the thread containing the email (used to mark as read)
         subject: Subject line for the reply
         body: Dict containing "html" and/or "text" fields
         cc_address_email_list: Optional comma-separated list of CC email addresses
         bcc_address_email_list: Optional comma-separated list of BCC email addresses
         eaccount: Optional email account to use (if not provided, will use default)
-    
+
     Returns:
-        The API response from Instantly.ai
+        The API response from Instantly.ai for the reply, plus status of mark-as-read.
     """
+    reply_api_response_data = None
+    mark_as_read_status = {"success": False, "details": "Not attempted"}
+
     try:
-        # Prepare the request payload
-        payload = {
+        # 1. Prepare the reply request payload
+        reply_payload = {
             "reply_to_uuid": request.reply_to_uuid,
             "subject": request.subject,
             "body": request.body
         }
-        
+
         # Add optional fields if they exist
         if request.cc_address_email_list:
-            payload["cc_address_email_list"] = request.cc_address_email_list
-        
+            reply_payload["cc_address_email_list"] = request.cc_address_email_list
+
         if request.bcc_address_email_list:
-            payload["bcc_address_email_list"] = request.bcc_address_email_list
-        
-        # If eaccount is provided, use it; otherwise fetch a sending account
-        if request.eaccount:
-            payload["eaccount"] = request.eaccount
-        else:
-            # Get the first available sending account
-            sending_accounts = fetch_sending_accounts()
-            if not sending_accounts.get("items"):
-                raise HTTPException(status_code=400, detail="No sending accounts available")
-            
-            payload["eaccount"] = sending_accounts["items"][0]["email"]
-        
-        # Call the Instantly.ai API
-        url = "https://api.instantly.ai/api/v2/emails/reply"
+            reply_payload["bcc_address_email_list"] = request.bcc_address_email_list
+
+        reply_payload["eaccount"] = request.eaccount
+
+        # Call the Instantly.ai Reply API
+        reply_url = "https://api.instantly.ai/api/v2/emails/reply"
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {INS_API_KEY}'
         }
-        
-        response = requests.post(url, headers=headers, json=payload)
-        
-        # Check for errors
-        if response.status_code != 200:
+
+        reply_response = requests.post(reply_url, headers=headers, json=reply_payload)
+        reply_api_response_data = reply_response.json() # Store response data regardless of status for potential debugging
+
+        # Check for reply errors
+        if reply_response.status_code != 200:
             return {
                 "status": False,
-                "message": f"API Error: {response.status_code}",
-                "details": response.json()
+                "message": f"Failed to send email reply. API Error: {reply_response.status_code}",
+                "reply_details": reply_api_response_data,
+                "mark_as_read_status": mark_as_read_status # Include initial status
             }
-        
-        # Return success response
+
+        # --- Reply was successful, now mark the thread as read ---
+
+        try:
+            mark_read_url = f"https://api.instantly.ai/api/v2/emails/threads/{request.thread_id}/mark-as-read"
+            # Only Authorization header is needed for this endpoint based on docs
+            mark_read_headers = {'Authorization': f'Bearer {INS_API_KEY}'}
+
+            mark_read_response = requests.post(mark_read_url, headers=mark_read_headers)
+
+            if mark_read_response.status_code == 200:
+                mark_read_data = mark_read_response.json()
+                mark_as_read_status["success"] = mark_read_data.get("success", False)
+                mark_as_read_status["details"] = mark_read_data
+                if not mark_as_read_status["success"]:
+                     mark_as_read_status["message"] = "API indicated mark as read was not successful."
+            else:
+                # Log or report the error, but don't necessarily fail the whole operation
+                # since the primary goal (sending reply) succeeded.
+                print(f"Warning: Failed to mark thread {request.thread_id} as read. Status: {mark_read_response.status_code}, Response: {mark_read_response.text}")
+                mark_as_read_status["success"] = False
+                mark_as_read_status["details"] = {
+                    "error": "API request failed",
+                    "status_code": mark_read_response.status_code,
+                    "response_text": mark_read_response.text
+                }
+                mark_as_read_status["message"] = "Failed to mark thread as read after sending reply."
+
+        except Exception as mark_err:
+            # Catch errors specifically during the mark-as-read call
+            print(f"Error occurred while trying to mark thread {request.thread_id} as read: {str(mark_err)}")
+            mark_as_read_status["success"] = False
+            mark_as_read_status["details"] = {"error": f"Exception during mark-as-read call: {str(mark_err)}"}
+            mark_as_read_status["message"] = "An exception occurred when trying to mark thread as read."
+
+        # Return final success response including both results
         return {
             "status": True,
-            "message": "Email reply sent successfully",
-            "data": response.json()
+            "message": "Email reply sent successfully.",
+            "reply_data": reply_api_response_data, # Data from the reply API call
+            "mark_as_read_status": mark_as_read_status # Status of the mark-as-read call
         }
-        
+
+    except HTTPException as http_exc:
+        # Re-raise HTTPExceptions (like the one from sending account fetch)
+        raise http_exc
     except Exception as e:
+        # Catch general errors during reply preparation or sending
+        print(f"Unhandled error in reply_to_email: {str(e)}") # Log the error
         return {
             "status": False,
-            "message": f"Error sending reply: {str(e)}"
+            "message": f"Error processing email reply request: {str(e)}",
+            "reply_details": reply_api_response_data, # Include if available
+            "mark_as_read_status": mark_as_read_status
         }
+    
 
 # Forward email functionality (similar to reply but with different formatting)
 @app.post("/forward_email")
