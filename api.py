@@ -449,7 +449,7 @@ def get_unread_emails():
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
         "limit": "50",
-        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159", #change here
+        "campaign_id": "2ad45176-11ad-44d7-bd55-072ffba5363d", #change here
         "is_unread": "true",
         "ai_interest_value": 0.75,
         "i_status": 1,
@@ -471,7 +471,7 @@ def get_all_emails():
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
         "limit": "50",
-        "campaign_id": "5e189b2e-c7ed-457c-8df5-6251efa82159", #change here
+        "campaign_id": "2ad45176-11ad-44d7-bd55-072ffba5363d", #change here
         "ai_interest_value": 0.75,
         "i_status": 1,
         "email_type": "received"
