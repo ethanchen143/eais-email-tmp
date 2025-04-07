@@ -563,7 +563,7 @@ def get_email_status(email_id, body_content, cache=None):
 @app.post("/get_emails_chubby/")
 async def get_emails_chubby():
     # Fetch emails from Instantly.ai API
-    raw_emails_response = get_all_emails()
+    raw_emails_response = await get_all_emails()
     raw_emails = raw_emails_response.get("items", [])
     
     # Load the cache once for the entire request
