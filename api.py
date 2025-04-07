@@ -34,7 +34,7 @@ campaigns_collection = db["campaigns"]
 leads_collection = db["leads"]
 generated_emails_collection = db["generated_emails"]
 
-CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
 
 # Configure CORS
 app.add_middleware(
