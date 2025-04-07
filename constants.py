@@ -17,27 +17,6 @@ Return ONLY a JSON-formatted list of strings, with no explanations or extra text
 ]
 """
 
-get_product_info_prompt = """
-### Role and Task:
-You are a seasoned marketing strategist specializing in product analysis. Extract key product information from the provided brand and product pages.
-
-### Brand Page: 
-{brand}
-
-### Product Page:
-{product} 
-
-### Output Format:
-Return ONLY a JSON object with the following fields, with no explanations or extra text:
-{
-    "companyName": "Name of the company/brand",
-    "productName": "Name of the specific product",
-    "productSummary": "A concise 1-2 sentence summary of what the product is and does",
-    "sellingPoints": "3-5 key selling points or benefits of the product, separated by newlines"
-}
-"""
-
-
 generate_pitch_prompt = """
 ### Role and Task:
 You are a seasoned marketing strategist specializing in influencer partnerships. Craft a compelling pitch from the provided email template.

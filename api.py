@@ -34,6 +34,8 @@ campaigns_collection = db["campaigns"]
 leads_collection = db["leads"]
 generated_emails_collection = db["generated_emails"]
 
+CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -440,16 +442,12 @@ async def send_emails(campaign_id: str = Form(...)):
     else:
         return {"status": "Failed to send emails"}
 
-
-
-
-
 def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
         "limit": "50",
-        "campaign_id": "2ad45176-11ad-44d7-bd55-072ffba5363d", #change here
+        "campaign_id": CAMPAIGN_ID, 
         "is_unread": "true",
         "ai_interest_value": 0.75,
         "i_status": 1,
@@ -471,7 +469,7 @@ def get_all_emails():
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
         "limit": "50",
-        "campaign_id": "2ad45176-11ad-44d7-bd55-072ffba5363d", #change here
+        "campaign_id": CAMPAIGN_ID,
         "ai_interest_value": 0.75,
         "i_status": 1,
         "email_type": "received"
@@ -501,7 +499,6 @@ def format_date(timestamp_str):
 ### CHUBBY GROUP INBOX CODE ###
 
 # TODO: update to chubby group's campaign id
-
 import json
 import os
 from chubby import extract_influencer_response, extract_restaurant_labels
@@ -725,8 +722,7 @@ async def modify_email_label(request: LabelModificationRequest):
             detail=f"Error updating email: {str(e)}"
         )
 
-
-
+import html
 from typing import Optional, Dict
 class EmailReplyRequest(BaseModel):
     reply_to_uuid: str
@@ -737,33 +733,37 @@ class EmailReplyRequest(BaseModel):
     bcc_address_email_list: Optional[str] = None
     eaccount: Optional[str] = None  # If None, will use the authenticated user's email
 
+def text_to_html(text):
+    """
+    Convert plain text to HTML, properly handling newlines and basic formatting.
+    """
+    if not text:
+        return ""
+    escaped_text = html.escape(text)
+    html_text = escaped_text.replace('\n', '<br>\n')
+    html_text = f'<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">{html_text}</div>'
+    return html_text
+
 @app.post("/reply_to_email")
 async def reply_to_email(request: EmailReplyRequest):
     """
     Reply to an existing email using the Instantly.ai API and then mark the thread as read.
-
-    Args:
-        reply_to_uuid: The ID of the email to reply to
-        thread_id: The ID of the thread containing the email (used to mark as read)
-        subject: Subject line for the reply
-        body: Dict containing "html" and/or "text" fields
-        cc_address_email_list: Optional comma-separated list of CC email addresses
-        bcc_address_email_list: Optional comma-separated list of BCC email addresses
-        eaccount: Optional email account to use (if not provided, will use default)
-
-    Returns:
-        The API response from Instantly.ai for the reply, plus status of mark-as-read.
+    Ensures the body is in HTML format if only plain text is provided.
     """
     reply_api_response_data = None
     mark_as_read_status = {"success": False, "details": "Not attempted"}
 
     try:
-        # 1. Prepare the reply request payload
         reply_payload = {
             "reply_to_uuid": request.reply_to_uuid,
             "subject": request.subject,
-            "body": request.body
+            "eaccount": request.eaccount
         }
+        
+        # Ensure we have HTML content
+        body_dict = dict(request.body) 
+        body_dict["html"] = text_to_html(body_dict["text"])
+        reply_payload["body"] = body_dict
 
         # Add optional fields if they exist
         if request.cc_address_email_list:
@@ -771,8 +771,6 @@ async def reply_to_email(request: EmailReplyRequest):
 
         if request.bcc_address_email_list:
             reply_payload["bcc_address_email_list"] = request.bcc_address_email_list
-
-        reply_payload["eaccount"] = request.eaccount
 
         # Call the Instantly.ai Reply API
         reply_url = "https://api.instantly.ai/api/v2/emails/reply"
@@ -809,8 +807,6 @@ async def reply_to_email(request: EmailReplyRequest):
                 if not mark_as_read_status["success"]:
                      mark_as_read_status["message"] = "API indicated mark as read was not successful."
             else:
-                # Log or report the error, but don't necessarily fail the whole operation
-                # since the primary goal (sending reply) succeeded.
                 print(f"Warning: Failed to mark thread {request.thread_id} as read. Status: {mark_read_response.status_code}, Response: {mark_read_response.text}")
                 mark_as_read_status["success"] = False
                 mark_as_read_status["details"] = {
@@ -838,6 +834,7 @@ async def reply_to_email(request: EmailReplyRequest):
     except HTTPException as http_exc:
         # Re-raise HTTPExceptions (like the one from sending account fetch)
         raise http_exc
+    
     except Exception as e:
         # Catch general errors during reply preparation or sending
         print(f"Unhandled error in reply_to_email: {str(e)}") # Log the error
@@ -847,7 +844,6 @@ async def reply_to_email(request: EmailReplyRequest):
             "reply_details": reply_api_response_data, # Include if available
             "mark_as_read_status": mark_as_read_status
         }
-    
 
 # Forward email functionality (similar to reply but with different formatting)
 @app.post("/forward_email")
@@ -867,33 +863,120 @@ async def forward_email(request: EmailReplyRequest):
     return await reply_to_email(request)
 
 
-### AUTO REPLY CODE ###
-def handle_email(body,influencer_email_address,influencer_name,marketer_email_address,marketer_name, intents, responses):
-    # identify intent
-    # reply using email template
-    return None
+### AUTO REPLY CODE (only work with chubby group for now) ###
+async def handle_email(
+    body: str,
+    influencer_email_address: str,
+    influencer_name: str,
+    marketer_email_address: str,
+    marketer_name: str,
+    subject:str,
+    id: str,
+    thread_id: str
+):
+    """
+    Automatically handle an email by detecting its intent and generating an appropriate response.
+    Currently only works with the Chubby Group.
+    
+    Args:
+        body: Email body content
+        influencer_email_address: Email address of the influencer
+        influencer_name: Name of the influencer
+        marketer_email_address: Email address of the marketer
+        marketer_name: Name of the marketer
+        intents: Dictionary of possible intents and their descriptions
+        responses: Dictionary mapping intents to response templates
+        
+    Returns:
+        Dict with status, detected intent, and response content
+    """
+    
+    # Build the intent detection prompt
+    intent_prompt = f"""
+    ### Role and Task:
+    You are an email intent classifier. Determine the primary intent of this email.
+    
+    ### Email Content:
+    {body}
+    
+    ### Possible Intents:
+    
+    ### Output Format:
+    Return only a intent string, which is the most appropriate intent from the list above.
+    """
+        
+    # Call GPT for intent detection
+    intent, status = gpt_ops_module.call_gpt_openai_json(
+        prompt=intent_prompt,
+        model="gpt-4o-mini"  
+    )
+        
+        
+    # Get the response template for the detected intent
+    response = "placeholder for now, uses intent to customize later."
+
+    request = EmailReplyRequest(
+        reply_to_uuid=id,
+        thread_id=thread_id,
+        subject=subject,
+        body={"text": response},
+        eaccount=marketer_email_address
+    )
+
+    await reply_to_email(request)
+
+# async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
+async def auto_reply_process(campaign_id: str):
+    while True:
+        try: 
+            emails_data = await get_unread_emails() # Assuming it becomes async
+            emails = emails_data.get('items', [])
+        except Exception as fetch_err:
+            print(f"Error fetching emails for {campaign_id}: {fetch_err}")
+            await asyncio.sleep(60) # Wait before retrying fetch
+            continue # Skip this iteration
+
+        for email in emails:
+            try:
+                subject = email.get('subject', 'No Subject')
+                body = email.get('body', {}).get('text', '')
+                email_id = email.get('id')
+                thread_id = email.get('thread_id')
+                from_address_list = email.get('from_address_json', [])
+                to_address_list = email.get('to_address_json', [])
+
+                if not all([email_id, thread_id, from_address_list, to_address_list, body]):
+                     print(f"Skipping email due to missing critical info: {email.get('id', 'N/A')}")
+                     continue
+
+                influencer_email_address = from_address_list[0].get('address')
+                influencer_name = from_address_list[0].get('name', influencer_email_address) # Use email as fallback name
+                marketer_email_address = to_address_list[0].get('address')
+                marketer_name = to_address_list[0].get('name', marketer_email_address)
+
+                if not all([influencer_email_address, marketer_email_address]):
+                     print(f"Skipping email due to missing address info: {email_id}")
+                     continue
+
+                await handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name, subject, email_id, thread_id)
+
+            except (KeyError, IndexError, TypeError) as parse_err:
+                print(f"Error processing email {email.get('id', 'N/A')} for {campaign_id}: {parse_err}")
+            except Exception as handle_err:
+                print(f"Unexpected error handling email {email.get('id', 'N/A')} for {campaign_id}: {handle_err}")
+
+        await asyncio.sleep(500)
 
 active_tasks = {}
 
-async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
-    while True:
-        emails = get_unread_emails()['items']
-        for email in emails:
-            body = email['body']['text']
-            influencer_email_address = email['from_address_json'][0]['address']
-            influencer_name = email['from_address_json'][0]['name']
-            marketer_email_address = email['to_address_json'][0]['address']
-            marketer_name = email['to_address_json'][0]['name']
-            handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name, intents, responses)
-        await asyncio.sleep(500)
-
 @app.post("/set_auto_reply/")
-async def set_auto_reply(campaign_id: str = Form(...),    
-                          intents: List[str] = Form([]),  
-                          responses: List[str] = Form([]) ):
+# async def set_auto_reply(campaign_id: str = Form(...),    
+#                           intents: List[str] = Form([]),  
+#                           responses: List[str] = Form([]) ):
+async def set_auto_reply(campaign_id: str = Form(...)):
     if campaign_id in active_tasks:
         active_tasks[campaign_id].cancel()
-    task = asyncio.create_task(auto_reply_process(campaign_id, intents, responses))
+    task = asyncio.create_task(auto_reply_process(campaign_id))
     active_tasks[campaign_id] = task
     return {"status": "Success", "message": f"Auto Reply started for Campaign {campaign_id}"}
 
