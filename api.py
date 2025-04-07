@@ -933,7 +933,6 @@ async def handle_email(
         model="gpt-4o-mini"  
     )
         
-        
     # Get the response template for the detected intent
     response = "placeholder for now, uses intent to customize later."
 
@@ -947,20 +946,12 @@ async def handle_email(
 
     await reply_to_email(request)
 
-
-import logging
-logging.basicConfig(level=logging.INFO)
-
 # async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
 async def auto_reply_process(campaign_id: str):
-    logging.info(f"Starting auto_reply_process for campaign {campaign_id}")
     while True:
-        logging.info(f"[{campaign_id}] Auto-reply loop iteration starting.")
         try: 
-            logging.info(f"[{campaign_id}] Fetching unread emails...")
             emails_data = await get_unread_emails() # Assuming it becomes async
             emails = emails_data.get('items', [])
-            logging.info(f"[{campaign_id}] Fetched {len(emails)} emails.")
         except Exception as fetch_err:
             print(f"Error fetching emails for {campaign_id}: {fetch_err}")
             await asyncio.sleep(60) # Wait before retrying fetch
@@ -989,14 +980,13 @@ async def auto_reply_process(campaign_id: str):
                      continue
 
                 await handle_email(body, influencer_email_address, influencer_name, marketer_email_address, marketer_name, subject, email_id, thread_id)
-                logging.info(f"[{campaign_id}] Finished handle_email.")
 
             except (KeyError, IndexError, TypeError) as parse_err:
                 print(f"Error processing email {email.get('id', 'N/A')} for {campaign_id}: {parse_err}")
             except Exception as handle_err:
                 print(f"Unexpected error handling email {email.get('id', 'N/A')} for {campaign_id}: {handle_err}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(300)
 
 active_tasks = {}
 
