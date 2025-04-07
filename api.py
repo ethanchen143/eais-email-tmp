@@ -442,48 +442,70 @@ async def send_emails(campaign_id: str = Form(...)):
     else:
         return {"status": "Failed to send emails"}
 
-def get_unread_emails():
-    # Fetch emails from Instantly.ai API
-    url = "https://api.instantly.ai/api/v2/emails"
-    query = {
-        "limit": "50",
-        "campaign_id": CAMPAIGN_ID, 
-        "is_unread": "true",
-        "ai_interest_value": 0.75,
-        "i_status": 1,
-        "email_type": "received"
-    }
-    headers = {
-        'Authorization': f'Bearer {INS_API_KEY}',
-    }
-    try:
-        response = requests.get(url, headers=headers, params=query)
-        response.raise_for_status()  # Raise exception for non-200 status codes
-        return response.json()
-    except requests.RequestException as e:
-        print(f"API request failed: {e}")
-        return {"data": []}
-    
-def get_all_emails():
+import httpx
+
+async def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
         "limit": "50",
         "campaign_id": CAMPAIGN_ID,
-        "ai_interest_value": 0.75,
-        "i_status": 1,
+        "is_unread": "true",
+        "ai_interest_value": "0.75", # Keep as string if API expects string
+        "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
     }
     headers = {
         'Authorization': f'Bearer {INS_API_KEY}',
+        'Accept': 'application/json' # Good practice to include Accept header
     }
     try:
-        response = requests.get(url, headers=headers, params=query)
-        response.raise_for_status()  # Raise exception for non-200 status codes
-        return response.json()
-    except requests.RequestException as e:
-        print(f"API request failed: {e}")
-        return {"data": []}
+        # Use an async context manager for the client
+        async with httpx.AsyncClient(timeout=30.0) as client: # Add a timeout
+            # Use await for the async request method
+            response = await client.get(url, headers=headers, params=query)
+            response.raise_for_status()  # Raise exception for non-200 status codes
+            return response.json()
+    # httpx raises httpx.RequestError for connection issues, httpx.HTTPStatusError for 4xx/5xx
+    except httpx.HTTPStatusError as e:
+         print(f"API request failed with status {e.response.status_code}: {e.response.text}")
+         # Decide what to return, maybe signal error differently?
+         return {"items": [], "error": f"HTTP Status {e.response.status_code}"} # Match expected structure if possible
+    except httpx.RequestError as e:
+        print(f"API request connection failed: {e}")
+        return {"items": [], "error": "Connection Error"} # Match expected structure if possible
+    except Exception as e: # Catch other potential errors like JSON decoding
+         print(f"An unexpected error occurred in get_unread_emails: {e}")
+         return {"items": [], "error": "Unexpected Error"}
+
+async def get_all_emails():
+    # Fetch emails from Instantly.ai API
+    url = "https://api.instantly.ai/api/v2/emails"
+    query = {
+        "limit": "50",
+        "campaign_id": CAMPAIGN_ID,
+        "ai_interest_value": "0.75", # Keep as string if API expects string
+        "i_status": "1", # Keep as string if API expects string
+        "email_type": "received"
+    }
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+        'Accept': 'application/json'
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers, params=query)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+         print(f"API request failed with status {e.response.status_code}: {e.response.text}")
+         return {"items": [], "error": f"HTTP Status {e.response.status_code}"}
+    except httpx.RequestError as e:
+        print(f"API request connection failed: {e}")
+        return {"items": [], "error": "Connection Error"}
+    except Exception as e:
+         print(f"An unexpected error occurred in get_all_emails: {e}")
+         return {"items": [], "error": "Unexpected Error"}
 
 from datetime import datetime, timedelta
 
