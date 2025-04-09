@@ -59,7 +59,8 @@ def extract_restaurant_labels(influencer_response):
     - "Las Vegas, NV (The X Pot Las Vegas)"
     - "Philadelphia, PA (Chubby Cattle Philadelphia)"
     
-    If no specific restaurant is mentioned, (be strict if influencer says "i can work with any locations in Vegas") or it's unclear, only return "Ambiguous".
+    If a influencer said a city, return a random restaurant location in that city.
+    If no location can be inferred, or if it's unclear, only return "Ambiguous".
     
     INFLUENCER RESPONSE:
     {influencer_response}
