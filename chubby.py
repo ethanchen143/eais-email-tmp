@@ -50,6 +50,7 @@ def extract_restaurant_labels(influencer_response):
     Known restaurants:
     - "Beverly Hills, CA (Chubby Curry – Covina)"
     - "Los Angeles, CA (Chubby Cattle Little Tokyo)"
+    - "Los Angeles, CA (NIKU X)"
     - "Monterey Park, CA (Chubby Cattle Monterey Park)"
     - "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)"
     - "Houston, TX (Mikiya Wagyu Shabu House Houston)"   
@@ -58,6 +59,7 @@ def extract_restaurant_labels(influencer_response):
     - "Las Vegas, NV (Chubby Cattle Las Vegas)"
     - "Las Vegas, NV (The X Pot Las Vegas)"
     - "Philadelphia, PA (Chubby Cattle Philadelphia)"
+    - "New York, NY (NIKU X)"
     
     If a influencer said a city, return a random restaurant location in that city.
     If no location can be inferred, or if it's unclear, only return "Ambiguous".
