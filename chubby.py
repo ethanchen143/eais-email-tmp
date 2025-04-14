@@ -80,24 +80,3 @@ def extract_restaurant_labels(influencer_response):
     
     return response.choices[0].message.content.strip()
 
-# Example usage:
-if __name__ == "__main__":
-    email = """
-    Subject: Re: Collaboration Opportunity
-    
-    Hi there,
-    Thanks for reaching out about the collaboration. I'm interested in working with Chubby Cattle Las Vegas and maybe the X Pot too.
-    
-    Best,
-    Influencer
-    
-    On Mon, Mar 17, 2025 at 10:00 AM, Team <team@company.com> wrote:
-    > Hi Influencer,
-    > We're excited to offer you a collaboration opportunity with Chubby Group...
-    """
-
-    response = extract_influencer_response(email)
-    print("Influencer Response:", response)
-    
-    restaurants = extract_restaurant_labels(response)
-    print("Restaurants:", restaurants)
