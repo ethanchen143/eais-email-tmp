@@ -904,7 +904,7 @@ async def handle_email(
     # Build the intent detection prompt
     intent_prompt = f"""
     ### Role and Task:
-    You are an email intent classifier. Some of them are restaurant names, if you think they're going to this restaurant, output it as the intent string.
+    You are an email intent classifier. Some of them are restaurant names, if you think they're going to a restaurant, output it as the intent string.
 
     ### Email Content:
     {body}
@@ -927,7 +927,7 @@ async def handle_email(
     - "Human Needed" - (If no intent above is appropriate)
 
     ### Output Format:
-    Return only a intent string, which is the most appropriate intent from the list above.
+    Return a intent string directly, from the list above.
     
     """
         
@@ -936,6 +936,7 @@ async def handle_email(
         prompt=intent_prompt,
         model="gpt-4o-mini"  
     )
+    print(intent)
     
     # Get the response template for the detected intent
     if intent == "Human Needed":
@@ -960,7 +961,7 @@ async def handle_email(
             Dear [Influencer's Name],
             Thank you for your interest in {restaurant_name} — we are stoked to have you!​ I am confirming your reservation with our manager now, and you’ll receive another confirmation email shortly with final details.
             During your visit, we're providing a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting these following details:
-            {restaurant_details[intent]}
+            {restaurant_details.get(intent,'')}
             Quick heads up — right now we’re offering this complimentary dining experience in exchange for your authentic content, without additional monetary compensation.
             Once your content is live, please update us here:
             https://influencers.creatorain.com/auth/creator-signup/chubby-group
