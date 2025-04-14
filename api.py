@@ -899,7 +899,8 @@ async def handle_email(
     subject:str,
     id: str,
     thread_id: str
-):    
+):  
+    print('handling email')
     # Build the intent detection prompt
     intent_prompt = f"""
     ### Role and Task:
@@ -935,9 +936,10 @@ async def handle_email(
         prompt=intent_prompt,
         model="gpt-4o-mini"  
     )
-        
+    
     # Get the response template for the detected intent
     if intent == "Human Needed":
+        print('human needed')
         return
     if intent == "Compensation":
         response = f"""
