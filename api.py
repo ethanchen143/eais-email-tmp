@@ -6,7 +6,6 @@ from email_writer import EmailWriter, GptOperations
 import pandas as pd
 import random
 import string
-from typing import List
 import os
 import copy
 from bs4 import BeautifulSoup
@@ -34,8 +33,8 @@ campaigns_collection = db["campaigns"]
 leads_collection = db["leads"]
 generated_emails_collection = db["generated_emails"]
 
-# CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
-CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
+# CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
 
 # Configure CORS
 app.add_middleware(
@@ -900,7 +899,6 @@ async def handle_email(
     id: str,
     thread_id: str
 ):  
-    print('handling email')
     # Build the intent detection prompt
     intent_prompt = f"""
     ### Role and Task:
