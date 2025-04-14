@@ -1024,7 +1024,7 @@ async def auto_reply_process(campaign_id: str):
             except Exception as handle_err:
                 print(f"Unexpected error handling email {email.get('id', 'N/A')} for {campaign_id}: {handle_err}")
 
-        await asyncio.sleep(300)
+        await asyncio.sleep(60)
 
 active_tasks = {}
 
