@@ -936,6 +936,10 @@ async def handle_email(
         prompt=intent_prompt,
         model="gpt-4o-mini"  
     )
+    if intent[0] == '"':
+        intent = intent[1:]
+    if intent[-1] == '"':
+        intent = intent[:-1]   
     print(intent)
     
     # Get the response template for the detected intent
@@ -944,7 +948,7 @@ async def handle_email(
         return
     if intent == "Compensation":
         response = f"""
-            Hi [Influencer's Name],
+            Hi {influencer_name},
             Thanks for your interest in collaborating with Chubby Group — we're excited about the possibility of working together!
             As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
             While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
@@ -958,7 +962,7 @@ async def handle_email(
         restaurant_name = match.group(1) if match else "Chubby Restaurants"
         # intent is restaurant name here
         response = f"""
-            Dear [Influencer's Name],
+            Dear {influencer_name},
             Thank you for your interest in {restaurant_name} — we are stoked to have you!​ I am confirming your reservation with our manager now, and you’ll receive another confirmation email shortly with final details.
             During your visit, we're providing a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting these following details:
             {restaurant_details.get(intent,'')}
