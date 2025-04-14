@@ -34,8 +34,8 @@ campaigns_collection = db["campaigns"]
 leads_collection = db["leads"]
 generated_emails_collection = db["generated_emails"]
 
-CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
-# CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+# CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
+CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
 
 # Configure CORS
 app.add_middleware(
@@ -904,7 +904,7 @@ async def handle_email(
     intent_prompt = f"""
     ### Role and Task:
     You are an email intent classifier. Some of them are restaurant names, if you think they're going to this restaurant, output it as the intent string.
-    
+
     ### Email Content:
     {body}
     
