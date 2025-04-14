@@ -48,7 +48,8 @@ def extract_restaurant_labels(influencer_response):
     Return ONLY a string with the standardized names from the Chubby Group, (include the location), e.g."Las Vegas, NV (Chubby Cattle BBQ Las Vegas)".
     
     Known restaurants:
-    - "Beverly Hills, CA (Chubby Curry – Covina)"
+    - "Los Angeles, CA (Chubby Curry – Covina)"
+    - "Los Angeles, CA (Chubby Curry – Beverly Hills)"
     - "Los Angeles, CA (Chubby Cattle Little Tokyo)"
     - "Los Angeles, CA (NIKU X)"
     - "Monterey Park, CA (Chubby Cattle Monterey Park)"

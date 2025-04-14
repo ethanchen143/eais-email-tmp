@@ -886,6 +886,9 @@ async def forward_email(request: EmailReplyRequest):
     return await reply_to_email(request)
 
 
+from chubby_restaurant_data import restaurant_details
+import re
+
 ### AUTO REPLY CODE (only work with chubby group for now) ###
 async def handle_email(
     body: str,
@@ -896,36 +899,35 @@ async def handle_email(
     subject:str,
     id: str,
     thread_id: str
-):
-    """
-    Automatically handle an email by detecting its intent and generating an appropriate response.
-    Currently only works with the Chubby Group.
-    
-    Args:
-        body: Email body content
-        influencer_email_address: Email address of the influencer
-        influencer_name: Name of the influencer
-        marketer_email_address: Email address of the marketer
-        marketer_name: Name of the marketer
-        intents: Dictionary of possible intents and their descriptions
-        responses: Dictionary mapping intents to response templates
-        
-    Returns:
-        Dict with status, detected intent, and response content
-    """
-    
+):    
     # Build the intent detection prompt
     intent_prompt = f"""
     ### Role and Task:
-    You are an email intent classifier. Determine the primary intent of this email.
+    You are an email intent classifier. Some of them are restaurant names, if you think they're going to this restaurant, output it as the intent string.
     
     ### Email Content:
     {body}
     
     ### Possible Intents:
-    
+    - "Los Angeles, CA (Chubby Curry – Covina)"
+    - "Los Angeles, CA (Chubby Curry – Beverly Hills)"
+    - "Los Angeles, CA (Chubby Cattle Little Tokyo)"
+    - "Los Angeles, CA (NIKU X)"
+    - "Monterey Park, CA (Chubby Cattle Monterey Park)"
+    - "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)"
+    - "Houston, TX (Mikiya Wagyu Shabu House Houston)"   
+    - "Chicago, IL (Chubby Cattle Chicago)" 
+    - "Chicago, IL (Wagyu House by The X Pot)"
+    - "Las Vegas, NV (Chubby Cattle Las Vegas)"
+    - "Las Vegas, NV (The X Pot Las Vegas)"
+    - "Philadelphia, PA (Chubby Cattle Philadelphia)"
+    - "New York, NY (NIKU X)"
+    - "Compensation" - (this means they're asking for money/about compensation)
+    - "Human Needed" - (If no intent above is appropriate)
+
     ### Output Format:
     Return only a intent string, which is the most appropriate intent from the list above.
+    
     """
         
     # Call GPT for intent detection
@@ -935,7 +937,36 @@ async def handle_email(
     )
         
     # Get the response template for the detected intent
-    response = "placeholder for now, uses intent to customize later."
+    if intent == "Human Needed":
+        return
+    if intent == "Compensation":
+        response = f"""
+            Hi [Influencer's Name],
+            Thanks for your interest in collaborating with Chubby Group — we're excited about the possibility of working together!
+            As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
+            While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
+            Let us know if you're interested in moving forward or if you have any questions!
+            Best,
+            {marketer_name}
+            Chubby Group
+        """
+    else:
+        match = re.search(r'\((.*?)\)', intent)
+        restaurant_name = match.group(1) if match else "Chubby Restaurants"
+        # intent is restaurant name here
+        response = f"""
+            Dear [Influencer's Name],
+            Thank you for your interest in {restaurant_name} — we are stoked to have you!​ I am confirming your reservation with our manager now, and you’ll receive another confirmation email shortly with final details.
+            During your visit, we're providing a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting these following details:
+            {restaurant_details[intent]}
+            Quick heads up — right now we’re offering this complimentary dining experience in exchange for your authentic content, without additional monetary compensation.
+            Once your content is live, please update us here:
+            https://influencers.creatorain.com/auth/creator-signup/chubby-group
+            Excited to have you dine with us!
+            Cheers,
+            {marketer_name}
+            {restaurant_name}
+        """
 
     request = EmailReplyRequest(
         reply_to_uuid=id,
@@ -970,6 +1001,10 @@ async def auto_reply_process(campaign_id: str):
                 if not all([email_id, thread_id, from_address_list, to_address_list, body]):
                      print(f"Skipping email due to missing critical info: {email.get('id', 'N/A')}")
                      continue
+                
+                # avoid sending twice
+                if "While additional monetary compensation isn't available for this particular collaboration" in body or "Quick heads up — right now we’re offering this complimentary" in body:
+                    continue
 
                 influencer_email_address = from_address_list[0].get('address')
                 influencer_name = from_address_list[0].get('name', influencer_email_address) # Use email as fallback name
