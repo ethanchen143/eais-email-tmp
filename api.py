@@ -961,16 +961,21 @@ async def handle_email(
         # intent is restaurant name here
         response = f"""
             Dear {influencer_name},
-            Thank you for your interest in {restaurant_name} — we are stoked to have you!​ I am confirming your reservation with our manager now, and you’ll receive another confirmation email shortly with final details.
-            During your visit, we're providing a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting these following details:
+            Thank you for your interest in {restaurant_name} — we are excited to have you!​ I am confirming your reservation with our manager now, and you’ll get a final confirmation email shortly.
+            Your visit includes a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting:
+            
             {restaurant_details.get(intent,'')}
-            Quick heads up — right now we’re offering this complimentary dining experience in exchange for your authentic content, without additional monetary compensation.
-            Once your content is live, please update us here:
+
+            Feel free to follow the guidelines, but don’t hesitate to add your own flair — we want it to match your style. You can find more details and upload your content here:
             https://influencers.creatorain.com/auth/creator-signup/chubby-group
-            Excited to have you dine with us!
-            Cheers,
+
+            In the meantime, could you please share:
+            a) Full name for reservation
+            b) A contact phone number
+            c) Any dietary restrictions
+
+            Best,
             {marketer_name}
-            {restaurant_name}
         """
 
     request = EmailReplyRequest(
