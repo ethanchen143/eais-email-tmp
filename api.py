@@ -921,7 +921,8 @@ async def handle_email(
     - "Las Vegas, NV (The X Pot Las Vegas)"
     - "Philadelphia, PA (Chubby Cattle Philadelphia)"
     - "New York, NY (NIKU X)"
-    - "Compensation" - (this means they're asking for money/about compensation)
+    - "General Interest" - (no specific restaurant indicated, but seem interested to work with us)
+    - "Compensation" - (this means they're asking for money/paid partnership/budget, etc)
     - "Human Needed" - (If no intent above is appropriate)
 
     ### Output Format:
@@ -939,7 +940,11 @@ async def handle_email(
     if intent[-1] == '"':
         intent = intent[:-1]   
     print(intent)
-    
+
+    # prevent empty influencer name bug
+    if influencer_name.strip() == "":
+        influencer_name = influencer_email_address
+
     # Get the response template for the detected intent
     if intent == "Human Needed":
         print('human needed')
@@ -951,6 +956,21 @@ async def handle_email(
             As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
             While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
             Let us know if you're interested in moving forward or if you have any questions!
+            Best,
+            {marketer_name}
+            Chubby Group
+        """
+    if intent == "General Interest":
+        response = f"""
+            Hi {influencer_name},
+            Thank you so much for your interest in details about Chubby Group — we're thrilled about the potential of working together!
+            We’re currently offering a complimentary fine dining experience for you and a guest (valued between $120–$180) in exchange for your authentic content on Instagram and/or TikTok. During your visit, we’d love for you to highlight:
+            The flavor, texture, and superior quality of our purebred A5 Wagyu beef and imported seafood, flown in daily from Japan
+            The presentation and consistency of our culinary creations
+            The overall ambiance and level of service we provide
+            While we’re not offering additional monetary compensation for this collaboration, we’re confident this experience will provide plenty of premium content that aligns with your audience and creative style.
+            Feel free check out the details and upload your video directly to our platform here: https://influencers.creatorain.com/auth/creator-signup/chubby-group
+            Let us know if you'd like to move forward, and I’d be happy to coordinate next steps — including checking reservation availability.
             Best,
             {marketer_name}
             Chubby Group
