@@ -6,15 +6,11 @@ OPENAI_API_KEY = os.getenv("GPT_API_KEY")
 
 # Helper function to extract only the influencer's response
 def extract_influencer_response(email_body):
-    """
-    Step 1: Use GPT to extract only the influencer's response from the email chain,
-    removing any initial outreach or previous correspondence.
-    """
     # Configure your OpenAI client
     client = OpenAI(api_key=OPENAI_API_KEY)
     
     prompt = f"""
-    Extract ONLY the most recent response from the influencer from this email chain.
+    Extract ONLY the most recent response from the influencer from this email chain (no initial outreach).
     Ignore any initial outreach message or previous correspondence.
     Return only the text that represents the influencer's latest response.
     
@@ -79,4 +75,3 @@ def extract_restaurant_labels(influencer_response):
     )
     
     return response.choices[0].message.content.strip()
-

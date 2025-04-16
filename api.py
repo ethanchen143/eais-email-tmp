@@ -553,7 +553,21 @@ def get_email_status(email_id, body_content, cache=None):
         return cache[str(email_id)]
     print('generating labels with gpt')
     # If not in cache, process the email
-    influencer_response = extract_influencer_response(body_content)
+    influencer_response = body_content.replace("""California:
+Los Angeles: Chubby Cattle Little Tokyo
+Beverly Hills: Chubby Curry
+Covina: Chubby Curry
+Cerritos: Mikiya Wagyu Shabu House
+Monterey Park, Chubby Cattle Monterey Park
+ 
+Other Cities:
+New York City: NIKU X
+Chicago: Chubby Cattle Chicago
+Chicago: Wagyu House by The X Pot
+Las Vegas: Chubby Cattle Las Vegas
+Las Vegas: The X Pot Las Vegas
+Philadelphia: Chubby Cattle Philadelphia
+Houston: Mikiya Wagyu Shabu House""", "")
     restaurant_label = extract_restaurant_labels(influencer_response)
     # Store in cache
     cache[str(email_id)] = restaurant_label
@@ -899,12 +913,32 @@ async def handle_email(
     id: str,
     thread_id: str
 ):  
+    body = body.replace("""California:
+Los Angeles: Chubby Cattle Little Tokyo
+Beverly Hills: Chubby Curry
+Covina: Chubby Curry
+Cerritos: Mikiya Wagyu Shabu House
+Monterey Park, Chubby Cattle Monterey Park
+ 
+Other Cities:
+New York City: NIKU X
+Chicago: Chubby Cattle Chicago
+Chicago: Wagyu House by The X Pot
+Las Vegas: Chubby Cattle Las Vegas
+Las Vegas: The X Pot Las Vegas
+Philadelphia: Chubby Cattle Philadelphia
+Houston: Mikiya Wagyu Shabu House""", "")
+    body = extract_influencer_response(body)
+    print(body)
+    
     # Build the intent detection prompt
+
     intent_prompt = f"""
     ### Role and Task:
     You are an email intent classifier. Some of them are restaurant names, if you think they're going to a restaurant, output it as the intent string.
+    Be Catious, if no intent faithfully describe the influencer's intent, say "Human Needed" (low threshold for this).
 
-    ### Email Content:
+    ### Email Content (This is the entire email)
     {body}
     
     ### Possible Intents:
@@ -927,7 +961,6 @@ async def handle_email(
 
     ### Output Format:
     Return a intent string directly, from the list above.
-    
     """
         
     # Call GPT for intent detection
@@ -945,11 +978,34 @@ async def handle_email(
     if influencer_name.strip() == "":
         influencer_name = influencer_email_address
 
+    valid_intents = [
+        "Los Angeles, CA (Chubby Curry – Covina)",
+        "Los Angeles, CA (Chubby Curry – Beverly Hills)",
+        "Los Angeles, CA (Chubby Cattle Little Tokyo)",
+        "Los Angeles, CA (NIKU X)",
+        "Monterey Park, CA (Chubby Cattle Monterey Park)",
+        "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)",
+        "Houston, TX (Mikiya Wagyu Shabu House Houston)",
+        "Chicago, IL (Chubby Cattle Chicago)",
+        "Chicago, IL (Wagyu House by The X Pot)",
+        "Las Vegas, NV (Chubby Cattle Las Vegas)",
+        "Las Vegas, NV (The X Pot Las Vegas)",
+        "Philadelphia, PA (Chubby Cattle Philadelphia)",
+        "New York, NY (NIKU X)",
+        "General Interest",
+        "Compensation",
+        "Human Needed"
+    ]
+
+    if intent not in valid_intents:
+        print("Invalid intent. Ignoring.")
+        return
+
     # Get the response template for the detected intent
-    if intent == "Human Needed":
+    if "Human Needed" in intent:
         print('human needed')
         return
-    if intent == "Compensation":
+    if "Compensation" in intent:
         response = f"""
             Hi {influencer_name},
             Thanks for your interest in collaborating with Chubby Group — we're excited about the possibility of working together!
@@ -960,7 +1016,7 @@ async def handle_email(
             {marketer_name}
             Chubby Group
         """
-    if intent == "General Interest":
+    if "General Interest" in intent:
         response = f"""
             Hi {influencer_name},
             Thank you so much for your interest in details about Chubby Group — we're thrilled about the potential of working together!
@@ -1033,7 +1089,7 @@ async def auto_reply_process(campaign_id: str):
                      continue
                 
                 # avoid sending twice
-                if "While additional monetary compensation isn't available for this particular collaboration" in body or "Quick heads up — right now we’re offering this complimentary" in body:
+                if "Thanks for your interest in collaborating with Chubby Group" in body or "Thank you so much for your interest in details about Chubby Group" in body or "Thank you for your interest in" in body:
                     continue
 
                 influencer_email_address = from_address_list[0].get('address')
