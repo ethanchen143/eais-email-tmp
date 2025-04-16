@@ -428,23 +428,6 @@ Cecilia: 7027035950"
 
 
 
-    "Los Angeles, CA (NIKU X)": """
-CA,Los Angeles,NIKU X – LA 
-ophelia@chubbygroup.com
-Location: Wilshire Grand Centers 900 Wilshire Blvd. Suite 212 Los Angeles, CA 90017
-
-Fresh A5 Wagyu buffet (not frozen)
-50+ luxury buffet items
-Modern open kitchen, robatayaki grills
-AYCE + high-end experience
-
-[Instagram] @nikuxla @chubby.group
-[Tiktok] @nikuxla
-Location: NIKU X Los Angeles
-""",
-
-
-
     "Los Anegeles, CA (NIKU X)": """
 "Location: Wilshire Grand Centers 900 Wilshire Blvd. Suite 212 Los Angeles, CA 90017
 
