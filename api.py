@@ -482,9 +482,8 @@ async def get_all_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "50",
+        "limit": "100",
         "campaign_id": CAMPAIGN_ID,
-        "ai_interest_value": "0.75", # Keep as string if API expects string
         "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
     }
