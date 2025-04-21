@@ -16,6 +16,7 @@ import asyncio
 import json
 from fastapi import Query, HTTPException
 from typing import Dict
+from difflib import get_close_matches
 
 load_dotenv()
 VERSION = "1.0.0"
@@ -35,6 +36,11 @@ generated_emails_collection = db["generated_emails"]
 
 CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
 # CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+
+MENU_PATTERN = re.compile(
+    r'California:.*?Houston:.*?(?:Other Cities:.*?Houston:.*?)(?:\n|$)', 
+    re.S | re.I
+)
 
 # Configure CORS
 app.add_middleware(
@@ -552,21 +558,7 @@ def get_email_status(email_id, body_content, cache=None):
         return cache[str(email_id)]
     print('generating labels with gpt')
     # If not in cache, process the email
-    influencer_response = body_content.replace("""California:
-Los Angeles: Chubby Cattle Little Tokyo
-Beverly Hills: Chubby Curry
-Covina: Chubby Curry
-Cerritos: Mikiya Wagyu Shabu House
-Monterey Park, Chubby Cattle Monterey Park
- 
-Other Cities:
-New York City: NIKU X
-Chicago: Chubby Cattle Chicago
-Chicago: Wagyu House by The X Pot
-Las Vegas: Chubby Cattle Las Vegas
-Las Vegas: The X Pot Las Vegas
-Philadelphia: Chubby Cattle Philadelphia
-Houston: Mikiya Wagyu Shabu House""", "")
+    influencer_response = re.sub(MENU_PATTERN, "", body)
     restaurant_label = extract_restaurant_labels(influencer_response)
     # Store in cache
     cache[str(email_id)] = restaurant_label
@@ -900,105 +892,113 @@ async def forward_email(request: EmailReplyRequest):
 
 from chubby_restaurant_data import restaurant_details
 import re
+from collections import Counter
 
-### AUTO REPLY CODE (only work with chubby group for now) ###
+VALID_INTENTS = [
+    "Los Angeles, CA (Chubby Curry – Covina)",
+    "Los Angeles, CA (Chubby Curry – Beverly Hills)",
+    "Los Angeles, CA (Chubby Cattle Little Tokyo)",
+    "Los Angeles, CA (NIKU X)",
+    "Pleasanton, CA (Chubby Cattle)",
+    "Monterey Park, CA (Chubby Cattle Monterey Park)",
+    "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)",
+    "Houston, TX (Mikiya Wagyu Shabu House Houston)",
+    "Chicago, IL (Chubby Cattle Chicago)",
+    "Chicago, IL (Wagyu House by The X Pot)",
+    "Las Vegas, NV (Chubby Cattle Las Vegas)",
+    "Las Vegas, NV (The X Pot Las Vegas)",
+    "Philadelphia, PA (Chubby Cattle Philadelphia)",
+    "New York, NY (NIKU X)",
+    "General Interest",
+    "Compensation",
+    "Reservation Pending Confirmation",
+    "Human Needed"
+]
+
+# A tiny few-shot set to anchor the model
+FEW_SHOT_EXAMPLES = [
+    {"email": "Hi—I’d love to collaborate at Covina please!", 
+     "intent": "Los Angeles, CA (Chubby Curry – Covina)"},
+    {"email": "I only work with paid collaboration / do i get commission? / Are you offering paid posts or just the meal?", 
+     "intent": "Compensation"},
+    {"email": "I’m interested, could you send me more details?", 
+     "intent": "General Interest"},
+    {"email": "Thanks, bye.", 
+     "intent": "Human Needed"},
+    {"email": "Does 3:30pm this Friday work for the reservation?", 
+    "intent": "Reservation Coordination"}
+]
+
 async def handle_email(
     body: str,
     influencer_email_address: str,
     influencer_name: str,
     marketer_email_address: str,
     marketer_name: str,
-    subject:str,
+    subject: str,
     id: str,
     thread_id: str
-):  
-    body = body.replace("""California:
-Los Angeles: Chubby Cattle Little Tokyo
-Beverly Hills: Chubby Curry
-Covina: Chubby Curry
-Cerritos: Mikiya Wagyu Shabu House
-Monterey Park, Chubby Cattle Monterey Park
- 
-Other Cities:
-New York City: NIKU X
-Chicago: Chubby Cattle Chicago
-Chicago: Wagyu House by The X Pot
-Las Vegas: Chubby Cattle Las Vegas
-Las Vegas: The X Pot Las Vegas
-Philadelphia: Chubby Cattle Philadelphia
-Houston: Mikiya Wagyu Shabu House""", "")
-    body = extract_influencer_response(body)
-    print(body)
-    
-    # Build the intent detection prompt
+):
+    if len(influencer_name) == 0:
+        influencer_name = influencer_email_address.split('@')[0].capitalize()
 
-    intent_prompt = f"""
-    ### Role and Task:
-    You are an email intent classifier. Some of them are restaurant names, if you think they're going to a restaurant, output it as the intent string.
-    Be Catious, if no intent faithfully describe the influencer's intent, say "Human Needed" (low threshold for this).
+    # —————————— 1) Strip menu block with regex ——————————
+    body = re.sub(MENU_PATTERN, "", body)
 
-    ### Email Content (This is the entire email)
-    {body}
-    
-    ### Possible Intents:
-    - "Los Angeles, CA (Chubby Curry – Covina)"
-    - "Los Angeles, CA (Chubby Curry – Beverly Hills)"
-    - "Los Angeles, CA (Chubby Cattle Little Tokyo)"
-    - "Los Angeles, CA (NIKU X)"
-    - "Monterey Park, CA (Chubby Cattle Monterey Park)"
-    - "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)"
-    - "Houston, TX (Mikiya Wagyu Shabu House Houston)"   
-    - "Chicago, IL (Chubby Cattle Chicago)" 
-    - "Chicago, IL (Wagyu House by The X Pot)"
-    - "Las Vegas, NV (Chubby Cattle Las Vegas)"
-    - "Las Vegas, NV (The X Pot Las Vegas)"
-    - "Philadelphia, PA (Chubby Cattle Philadelphia)"
-    - "New York, NY (NIKU X)"
-    - "General Interest" - (no specific restaurant indicated, but seem interested to work with us)
-    - "Compensation" - (this means they're asking for money/paid partnership/budget, etc)
-    - "Human Needed" - (If no intent above is appropriate)
+    # —————————— 2) Extract the actual reply portion ——————————
+    # normalize once
+    normalized_body = " ".join(body.casefold().split())
 
-    ### Output Format:
-    Return a intent string directly, from the list above.
-    """
-        
-    # Call GPT for intent detection
-    intent, status = gpt_ops_module.call_gpt_openai_json(
-        prompt=intent_prompt,
-        model="gpt-4o-mini"  
-    )
-    if intent[0] == '"':
-        intent = intent[1:]
-    if intent[-1] == '"':
-        intent = intent[:-1]   
-    print(intent)
+    # prepare the three variants
+    full_variant      = normalized_body
+    snippet_variant   = " ".join(extract_influencer_response(body).casefold().split())
+    truncated_variant = " ".join(snippet_variant.split()[-200:])  # last ~200 tokens
 
-    # prevent empty influencer name bug
-    if influencer_name.strip() == "":
-        influencer_name = influencer_email_address
+    variants = {
+        "full_email": full_variant,
+        "last_response": snippet_variant,
+        "truncated_email": truncated_variant
+    }
 
-    valid_intents = [
-        "Los Angeles, CA (Chubby Curry – Covina)",
-        "Los Angeles, CA (Chubby Curry – Beverly Hills)",
-        "Los Angeles, CA (Chubby Cattle Little Tokyo)",
-        "Los Angeles, CA (NIKU X)",
-        "Monterey Park, CA (Chubby Cattle Monterey Park)",
-        "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)",
-        "Houston, TX (Mikiya Wagyu Shabu House Houston)",
-        "Chicago, IL (Chubby Cattle Chicago)",
-        "Chicago, IL (Wagyu House by The X Pot)",
-        "Las Vegas, NV (Chubby Cattle Las Vegas)",
-        "Las Vegas, NV (The X Pot Las Vegas)",
-        "Philadelphia, PA (Chubby Cattle Philadelphia)",
-        "New York, NY (NIKU X)",
-        "General Interest",
-        "Compensation",
-        "Human Needed"
-    ]
+    intents = []
+    for name, text in variants.items():
+        # rebuild the user message each time with the new email text
+        user_payload = json.dumps({
+            "email": text,
+            "valid_intents": VALID_INTENTS,
+            "examples": FEW_SHOT_EXAMPLES
+        }, indent=2)
 
-    if intent not in valid_intents:
-        print("Invalid intent. Ignoring.")
-        return
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an email intent classifier. "
+                    "Return ONLY {\"intent\": \"<one of the valid intents>\"}."
+                )
+            },
+            {"role": "user", "content": user_payload}
+        ]
+
+        resp, _ = gpt_ops_module.call_gpt_openai_json(
+            messages=messages,
+            model="gpt-4o-mini",
+            temperature=0,
+            max_tokens=20,
+            response_format={"type":"json_object"}
+        )
+        intent = resp.get("intent", "").strip()
+        guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
+        intent = guess if guess else "Human Needed"
+        intents.append(intent)
+
+    # majority vote
+    counts = Counter(intents)
+    most_common, freq = counts.most_common(1)[0]
+    if freq >= 2:
+        intent = most_common
+    else:
+        intent = "Human Needed"
 
     # Get the response template for the detected intent
     if "Human Needed" in intent:
@@ -1015,7 +1015,7 @@ Houston: Mikiya Wagyu Shabu House""", "")
             {marketer_name}
             Chubby Group
         """
-    if "General Interest" in intent:
+    elif "General Interest" in intent:
         response = f"""
             Hi {influencer_name},
             Thank you so much for your interest in details about Chubby Group — we're thrilled about the potential of working together!
@@ -1029,6 +1029,15 @@ Houston: Mikiya Wagyu Shabu House""", "")
             Best,
             {marketer_name}
             Chubby Group
+        """
+    elif "Reservation Pending Confirmation" in intent:
+        response = f"""
+            Hi {influencer_name},
+            Thank you for your patience, and I apologize for the delay in getting back to you. 
+            We’ve been experiencing a very high volume of guest activity at the restaurant, and our schedules have been tighter than usual. I’ve been coordinating with the location manager to see if we can make your reservation work, I'll try to get back to you asap.
+            Thank you again for your understanding, and I truly appreciate your partnership!
+            Best,
+            {marketer_name}
         """
     else:
         match = re.search(r'\((.*?)\)', intent)
