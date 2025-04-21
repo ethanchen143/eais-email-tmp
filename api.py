@@ -17,6 +17,7 @@ import json
 from fastapi import Query, HTTPException
 from typing import Dict
 from difflib import get_close_matches
+import re
 
 load_dotenv()
 VERSION = "1.0.0"
@@ -236,9 +237,7 @@ def extract_json_from_response(response):
         return json.loads(cleaned_response)
     except json.JSONDecodeError:
         pass
-    
-    # Try to find JSON-like structure with regex
-    import re
+
     json_pattern = r'({[\s\S]*})'
     match = re.search(json_pattern, cleaned_response)
     if match:
