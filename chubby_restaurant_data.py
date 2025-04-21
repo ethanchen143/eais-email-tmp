@@ -428,7 +428,7 @@ Cecilia: 7027035950"
 
 
 
-    "Los Anegeles, CA (NIKU X)": """
+    "Los Angeles, CA (NIKU X)": """
 "Location: Wilshire Grand Centers 900 Wilshire Blvd. Suite 212 Los Angeles, CA 90017
 
 First of Its Kind: They’re the only restaurant in the U.S. offering a fresh (never-frozen) A5 Wagyu steak buffet—an unlimited, premium experience hard to find anywhere else.
@@ -490,4 +490,45 @@ Location: Midtown South (New York, United States)
 Point of Contact:
 ophelia: 2125108212"
 """,
+
+
+
+    "Pleasanton, CA (Chubby Cattle)":"""
+"2693 Stoneridge Dr #106,
+Pleasanton, CA 94588
+
+Required: 
+1. Premium Ingredients: Imported purebred A5 Wagyu beef flown in from Japan.
+
+2. All-You-Can-Eat Wagyu: Offers three premium tiers ranging from $55 to $85, featuring American, Australian, and Japanese A5 Wagyu.
+
+3. Diverse Menu: Includes not only Wagyu but also curated seafood (shrimp, scallops) and unlimited sushi (like Salmon Nigiri and Wagyu Nigiri).
+Signature Hot Dishes: Features unique items like Wagyu Tartare, Sukiyaki Hot Pot, and A5 Wagyu Stone Pot Bibimbap.
+Desserts and Snacks: Serves desserts like milk tea, ice cream, and Asian snacks. 
+
+4. Chubby Club Membership (Clear CTA encouraging sign-ups for Chubby Club Membership)
+Membership Benefits Across 35+ Locations,
+Save up to $20 per visit at any Chubby Group restaurant and VIP perks 
+
+Optional Talking Points: 
+5. Affordable Luxury: Serves premium wagyu at a lower cost due to bulk purchasing and in-house partnerships.
+
+6. Interactive Dining: Automated ordering system and tableside service for quick delivery. 
+
+#Hashtages: #ChicagoFoodie #ChinatownEats #SushiLoversChicago #AllYouCanEatChicago
+
+[Instagram]
+
+Tag people (invite collaborators): @chubby.group
+
+Add location: Chubby Cattle Pleasanton
+
+[Tiktok]
+
+@ Mention: @chubbycattlebbq
+
+Location: Chubby Cattle Pleasanton
+"""
 }
+
+print(restaurant_details.keys())

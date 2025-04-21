@@ -48,6 +48,7 @@ def extract_restaurant_labels(influencer_response):
     - "Los Angeles, CA (Chubby Curry – Beverly Hills)"
     - "Los Angeles, CA (Chubby Cattle Little Tokyo)"
     - "Los Angeles, CA (NIKU X)"
+    - "Pleasanton, CA (Chubby Cattle)"
     - "Monterey Park, CA (Chubby Cattle Monterey Park)"
     - "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)"
     - "Houston, TX (Mikiya Wagyu Shabu House Houston)"   
