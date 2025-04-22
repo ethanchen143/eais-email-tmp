@@ -950,13 +950,11 @@ async def handle_email(
 
     # prepare the three variants
     full_variant      = normalized_body
-    snippet_variant   = " ".join(extract_influencer_response(body).casefold().split())
-    truncated_variant = " ".join(snippet_variant.split()[-200:])  # last ~200 tokens
 
     variants = {
         "full_email": full_variant,
-        "last_response": snippet_variant,
-        "truncated_email": truncated_variant
+        "last_response": full_variant,
+        "truncated_email": full_variant,
     }
 
     intents = []
