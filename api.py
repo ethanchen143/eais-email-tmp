@@ -979,12 +979,11 @@ async def handle_email(
             {"role": "user", "content": user_payload}
         ]
 
-        resp, _ = gpt_ops_module.call_gpt_openai_json(
+        resp, _ = gpt_ops_module.call_gpt_openai(
             messages=messages,
             model="gpt-4o-mini",
             temperature=0,
-            max_tokens=20,
-            response_format={"type":"json_object"}
+            max_tokens=20
         )
         intent = resp.get("intent", "").strip()
         guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
