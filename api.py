@@ -980,7 +980,7 @@ async def handle_email(
         ]
 
         resp, _ = gpt_ops_module.call_gpt_openai(
-            messages=messages,
+            messages,
             model="gpt-4o-mini",
             temperature=0,
             max_tokens=20
