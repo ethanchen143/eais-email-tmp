@@ -557,7 +557,7 @@ def get_email_status(email_id, body_content, cache=None):
         return cache[str(email_id)]
     print('generating labels with gpt')
     # If not in cache, process the email
-    influencer_response = re.sub(MENU_PATTERN, "", body)
+    influencer_response = re.sub(MENU_PATTERN, "", body_content)
     restaurant_label = extract_restaurant_labels(influencer_response)
     # Store in cache
     cache[str(email_id)] = restaurant_label
