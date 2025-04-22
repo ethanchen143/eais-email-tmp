@@ -940,6 +940,7 @@ async def handle_email(
 ):
     if len(influencer_name) == 0:
         influencer_name = influencer_email_address.split('@')[0].capitalize()
+    marketer_name = marketer_name.replace("ChubbyGroup", "").replace("Chubby Group", "")
 
     # —————————— 1) Strip menu block with regex ——————————
     body = re.sub(MENU_PATTERN, "", body)
@@ -1004,10 +1005,14 @@ async def handle_email(
     if "Compensation" in intent:
         response = f"""
             Hi {influencer_name},
-            Thanks for your interest in collaborating with Chubby Group — we're excited about the possibility of working together!
             As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
             While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
-            Let us know if you're interested in moving forward or if you have any questions!
+            Let us know if you're interested in moving forward:
+            a) Preferred Location
+            b) Date and time for the visit (Preferably a weekday or Friday/Sunday noon)
+            c) Full name for reservation
+            d) A contact phone number
+            e) Any dietary restrictions 
             Best,
             {marketer_name}
             Chubby Group
@@ -1021,8 +1026,13 @@ async def handle_email(
             The presentation and consistency of our culinary creations
             The overall ambiance and level of service we provide
             While we’re not offering additional monetary compensation for this collaboration, we’re confident this experience will provide plenty of premium content that aligns with your audience and creative style.
+            Let us know if you're interested in moving forward:
+            a) Preferred Location
+            b) Date and time for the visit (Preferably a weekday or Friday/Sunday noon)
+            c) Full name for reservation
+            d) A contact phone number
+            e) Any dietary restrictions
             Feel free check out the details and upload your video directly to our platform here: https://influencers.creatorain.com/auth/creator-signup/chubby-group
-            Let us know if you'd like to move forward, and I’d be happy to coordinate next steps — including checking reservation availability.
             Best,
             {marketer_name}
             Chubby Group
@@ -1094,7 +1104,11 @@ async def auto_reply_process(campaign_id: str):
                      continue
                 
                 # avoid sending twice
-                if "Thanks for your interest in collaborating with Chubby Group" in body or "Thank you so much for your interest in details about Chubby Group" in body or "Thank you for your interest in" in body:
+                if "Thanks for your interest in collaborating with Chubby Group" in body \
+                or "Thank you so much for your interest in details about Chubby Group" in body \
+                or "Thank you for your interest in" in body \
+                or "As compensation for your authentic coverage" in body \
+                or "Thank you for your patience" in body:
                     continue
 
                 influencer_email_address = from_address_list[0].get('address')
