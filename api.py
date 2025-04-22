@@ -988,7 +988,7 @@ async def handle_email(
         print("GPT raw response:", resp)
         intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
         guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
-        intent = guess if guess else "Human Needed"
+        intent = guess[0] if guess else "Human Needed"
         intents.append(intent)
 
     # majority vote
