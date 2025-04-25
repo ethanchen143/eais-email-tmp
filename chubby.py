@@ -57,6 +57,7 @@ def extract_restaurant_labels(influencer_response):
     - "Las Vegas, NV (Chubby Cattle Las Vegas)"
     - "Las Vegas, NV (The X Pot Las Vegas)"
     - "Philadelphia, PA (Chubby Cattle Philadelphia)"
+    - "Rowland Heights, CA (Chubby Cattle)",
     - "New York, NY (NIKU X)"
     
     If a influencer said a city, return a random restaurant location in that city.

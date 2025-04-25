@@ -1,6 +1,5 @@
 restaurant_details = {
-    "Los Angeles, CA (Chubby Curry – Covina)": """
-"Location: 139 N Citrus Ave, Covina, CA 91723
+    "Los Angeles, CA (Chubby Curry – Covina)": """Location: 139 N Citrus Ave, Covina, CA 91723
 
 Key Focus Points:
 Premium Ingredients: Uses Japanese wagyu and domestic wagyu as well as fresh seafood for the open sushi bar
@@ -35,13 +34,12 @@ Add location: Covina, California
 Location: Covina (California, United States)
 
 Point of Contact:
-Blair: 6266086707"
+Blair: 6266086707
 """,
 
 
 
-    "Los Angeles, CA (Chubby Curry – Beverly Hills)": """
-"Location: 225 S Beverly Dr, Beverly Hills, CA 90212, USA
+    "Los Angeles, CA (Chubby Curry – Beverly Hills)": """Location: 225 S Beverly Dr, Beverly Hills, CA 90212, USA
 
 Key Focus Points:
 Premium Ingredients: Uses Japanese wagyu and domestic wagyu as well as fresh seafood for the open sushi bar
@@ -76,13 +74,12 @@ Add location: Covina, California
 Location: Chubby Curry (225 S Beverly Dr, Beverly Hills)
 
 Point of Contact:
-Blair: 3102725963"
+Blair: 3102725963
 """,
 
 
 
-    "Los Angeles, CA (Chubby Cattle Little Tokyo)": """
-CA,Los Angeles,Chubby Cattle Little Tokyo 
+    "Los Angeles, CA (Chubby Cattle Little Tokyo)": """CA,Los Angeles,Chubby Cattle Little Tokyo 
 crystal@chubbygroup.com
 Location: 356 E 2nd St, Los Angeles, CA 90012 (Little Tokyo Japanese Village)
 
@@ -110,8 +107,7 @@ Location: Chubby Cattle (356 E 2nd St, Los Angeles, CA 90012)
 
 
 
-    "Monterey Park, CA (Chubby Cattle Monterey Park)": """
-"Location: 501 W Garvey Ave #108, Monterey Park, CA 91754
+    "Monterey Park, CA (Chubby Cattle Monterey Park)": """Location: 501 W Garvey Ave #108, Monterey Park, CA 91754
 
 Key Focus Points:
 1. Chubby Club Membership (Clear CTA encouraging sign-ups for Chubby Club Membership)
@@ -147,13 +143,12 @@ Add location: Chubby Cattle BBQ Monterey Park
 Location: Chubby Cattle (501 W Garvey Ave, Los Angeles)
 
 Point of Contact:
-Crystal: 5163232160"
+Crystal: 5163232160
 """,
 
 
 
-    "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)": """
-"Location: 11328 South St, Cerritos,CA, 90703
+    "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)": """Location: 11328 South St, Cerritos,CA, 90703
 
 Premium Ingredients: Imported purebred A5 Wagyu beef flown in daily from Japan, Australia and have domestic ranch
 
@@ -180,13 +175,12 @@ Add location: Mikiya Wagyu Shabu House Cerritos
 Location: Mikiya Wagyu Shabu House (11328 South St, Cerritos, CA 90703, USA)
 
 Point of Contact:
-Morgan: 8186683876"
+Morgan: 8186683876
 """,
 
 
 
-    "Houston, TX (Mikiya Wagyu Shabu House Houston)": """
-"Location: 9896 Bellaire Blvd, Suite A, Houston, TX 77036
+    "Houston, TX (Mikiya Wagyu Shabu House Houston)": """Location: 9896 Bellaire Blvd, Suite A, Houston, TX 77036
 
 Premium Ingredients: Imported purebred A5 Wagyu beef flown in daily from Japan, Australia and have domestic ranch
 
@@ -212,13 +206,12 @@ Add location: Mikiya Wagyu Shabu House Houston
 Location: Mikiya Wagyu Shabu House (9896 Bellaire Blvd A, Houston, TX 77036, USA)
 
 Point of Contact:
-Morgan: 8329308888"
+Morgan: 8329308888
 """,
 
 
 
-    "Chicago, IL (Chubby Cattle Chicago)": """
-"Location: 2162 S Archer Ave, Chicago, IL 60616
+    "Chicago, IL (Chubby Cattle Chicago)": """Location: 2162 S Archer Ave, Chicago, IL 60616
 
 Required: 
 1. Premium Ingredients: Imported purebred A5 Wagyu beef flown in from Japan.
@@ -253,13 +246,12 @@ Add location: Chubby Cattle Chicago
 Location: Chubby Cattle BBQ | Chicago
 
 Point of Contact:
-Cecilia: 7734519398"
+Cecilia: 7734519398
 """,
 
 
 
-    "Chicago, IL (Wagyu House by The X Pot)": """
-"Location: 1147 S Delano Court East, Chicago IL, 60605
+    "Chicago, IL (Wagyu House by The X Pot)": """Location: 1147 S Delano Court East, Chicago IL, 60605
 
 Required: 
 1. Premium Ingredients: Imported purebred A5 Wagyu beef flown in from Japan.
@@ -297,13 +289,12 @@ Add location: Wagyu House Chicago
 Location: Wagyu House by The X Pot (1147 S Delano Ct E, Cook, Illinois 60605-2741, USA)
 
 Point of Contact:
-Cecilia: 3125858655"
+Cecilia: 3125858655
 """,
 
 
 
-    "Philadelphia, PA (Chubby Cattle Philadelphia)": """
-"Location: 146 N 10th Street, Philadelphia PA 19107
+    "Philadelphia, PA (Chubby Cattle Philadelphia)": """Location: 146 N 10th Street, Philadelphia PA 19107
 
 Japanese Shabu Shabu (Hot Pot)
 
@@ -339,13 +330,12 @@ Add location: Chubby Cattle Shabu Philadelphia
 Location: Chubby Cattle (146 N 10th St, Philadelphia, United States)
 
 Point of Contact:
-Cecilia: 8666228853"
+Cecilia: 8666228853
 """,
 
 
 
-    "Las Vegas, NV (The X Pot Las Vegas)": """
-"Location: Grand Canal Shoppes At The Palazzo, Fl 2 3327 S Las Vegas Blvd, Suite 2884 Las Vegas
+    "Las Vegas, NV (The X Pot Las Vegas)": """Location: Grand Canal Shoppes At The Palazzo, Fl 2 3327 S Las Vegas Blvd, Suite 2884 Las Vegas
 
 Premium Ingredients: A5 Wagyu, hot pot broth crafted from pure spring water and premium ingredients.
 
@@ -380,13 +370,12 @@ Add location: The X Pot
 Location: The X Pot (3327 LasVegas Blvd S, Clark, Nevada 89109, USA)
 
 Point of Contact:
-Cecilia: 8668889768"
+Cecilia: 8668889768
 """,
 
 
 
-    "Las Vegas, NV (Chubby Cattle Las Vegas)": """
-"Location: 3400 S Jones Blvd #15, Las Vegas, NV 89146
+    "Las Vegas, NV (Chubby Cattle Las Vegas)": """Location: 3400 S Jones Blvd #15, Las Vegas, NV 89146
 
 Key Focus Points:
 
@@ -423,13 +412,12 @@ Add location: 3400 S Jones Blvd
 Location: Chubby Cattle (3400 S Jones Blvd, Clark, Nevada 89146, USA)
 
 Point of Contact:
-Cecilia: 7027035950"
+Cecilia: 7027035950
 """,
 
 
 
-    "Los Angeles, CA (NIKU X)": """
-"Location: Wilshire Grand Centers 900 Wilshire Blvd. Suite 212 Los Angeles, CA 90017
+    "Los Angeles, CA (NIKU X)": """Location: Wilshire Grand Centers 900 Wilshire Blvd. Suite 212 Los Angeles, CA 90017
 
 First of Its Kind: They’re the only restaurant in the U.S. offering a fresh (never-frozen) A5 Wagyu steak buffet—an unlimited, premium experience hard to find anywhere else.
 
@@ -455,13 +443,12 @@ Add location: Niku X Los Angles
 Location: Niku X ( 900 Wilshire Blvd, Los Angeles)
 
 Point of Contact:
-ophelia: 3239200302"
+ophelia: 3239200302
 """,
 
 
 
-    "New York, NY (NIKU X)": """
-"Location:
+    "New York, NY (NIKU X)": """Location:
 21 W 35th St New York, NY 10001 United States
 
 First of Its Kind: They’re the only restaurant in the U.S. offering a fresh (never-frozen) A5 Wagyu steak buffet—an unlimited, premium experience hard to find anywhere else.
@@ -488,13 +475,12 @@ Add location: NIKU X NYC
 Location: Midtown South (New York, United States)
 
 Point of Contact:
-ophelia: 2125108212"
+ophelia: 2125108212
 """,
 
 
 
-    "Pleasanton, CA (Chubby Cattle)":"""
-"2693 Stoneridge Dr #106,
+    "Pleasanton, CA (Chubby Cattle)":"""2693 Stoneridge Dr #106,
 Pleasanton, CA 94588
 
 Required: 
@@ -528,7 +514,43 @@ Add location: Chubby Cattle Pleasanton
 @ Mention: @chubbycattlebbq
 
 Location: Chubby Cattle Pleasanton
+""",
+
+
+
+
+    "Rowland Heights, CA (Chubby Cattle)":"""1288 Fullerton Rd, Rowland Heights, CA 91748
+
+Required: 
+1. Premium Ingredients: Imported purebred A5 Wagyu beef flown in from Japan.
+
+2. All-You-Can-Eat Wagyu: Offers three premium tiers ranging from $55 to $85, featuring American, Australian, and Japanese A5 Wagyu.
+
+3. Diverse Menu: Includes not only Wagyu but also curated seafood (shrimp, scallops) and unlimited sushi (like Salmon Nigiri and Wagyu Nigiri).
+Signature Hot Dishes: Features unique items like Wagyu Tartare, Sukiyaki Hot Pot, and A5 Wagyu Stone Pot Bibimbap.
+Desserts and Snacks: Serves desserts like milk tea, ice cream, and Asian snacks. 
+
+4. Chubby Club Membership (Clear CTA encouraging sign-ups for Chubby Club Membership)
+Membership Benefits Across 35+ Locations,
+Save up to $20 per visit at any Chubby Group restaurant and VIP perks 
+
+Optional Talking Points: 
+5. Affordable Luxury: Serves premium wagyu at a lower cost due to bulk purchasing and in-house partnerships.
+
+6. Interactive Dining: Automated ordering system and tableside service for quick delivery. 
+
+#Hashtages: #LAFoodie #LuxuryDiningLA #SocalAYCE #rowland heights #Japanese BBQ
+
+[Instagram]
+
+Tag people (invite collaborators): @chubbycattlebbq @chubby.group
+
+Add location: Chubby Cattle BBQ Rowland Heights
+
+[Tiktok]
+
+@ Mention: @chubbycattlebbq
+
+Location: RowlandHeights
 """
 }
-
-print(restaurant_details.keys())
