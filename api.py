@@ -487,7 +487,7 @@ async def get_received_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "10",
+        "limit": "500",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
@@ -515,7 +515,7 @@ async def get_sent_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "10",
+        "limit": "500",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "sent"
@@ -771,7 +771,6 @@ async def get_email_stats_chubby():
             "error": str(e)
         }
 
-
 from pydantic import BaseModel
 class LabelModificationRequest(BaseModel):
     email_id: str
@@ -884,7 +883,6 @@ async def reply_to_email(request: EmailReplyRequest):
             }
 
         # --- Reply was successful, now mark the thread as read ---
-
         try:
             mark_read_url = f"https://api.instantly.ai/api/v2/emails/threads/{request.thread_id}/mark-as-read"
             # Only Authorization header is needed for this endpoint based on docs
