@@ -483,14 +483,42 @@ async def get_unread_emails():
          print(f"An unexpected error occurred in get_unread_emails: {e}")
          return {"items": [], "error": "Unexpected Error"}
 
-async def get_all_emails():
+async def get_received_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "100",
+        "limit": "10",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
+    }
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+        'Accept': 'application/json'
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers, params=query)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+         print(f"API request failed with status {e.response.status_code}: {e.response.text}")
+         return {"items": [], "error": f"HTTP Status {e.response.status_code}"}
+    except httpx.RequestError as e:
+        print(f"API request connection failed: {e}")
+        return {"items": [], "error": "Connection Error"}
+    except Exception as e:
+         print(f"An unexpected error occurred in get_all_emails: {e}")
+         return {"items": [], "error": "Unexpected Error"}
+    
+async def get_sent_emails():
+    # Fetch emails from Instantly.ai API
+    url = "https://api.instantly.ai/api/v2/emails"
+    query = {
+        "limit": "10",
+        "campaign_id": CAMPAIGN_ID,
+        "i_status": "1", # Keep as string if API expects string
+        "email_type": "sent"
     }
     headers = {
         'Authorization': f'Bearer {INS_API_KEY}',
@@ -567,14 +595,14 @@ def get_email_status(email_id, body_content, cache=None):
 @app.post("/get_emails_chubby/")
 async def get_emails_chubby():
     # Fetch emails from Instantly.ai API
-    raw_emails_response = await get_all_emails()
-    raw_emails = raw_emails_response.get("items", [])
+    received_response = await get_received_emails()
+    received = received_response.get("items", [])
     
     # Load the cache once for the entire request
     cache = load_cache()
     transformed_emails = []
     
-    for idx, email in enumerate(raw_emails):
+    for idx, email in enumerate(received):
         # Extract the body content - prefer plain text for simplicity
         body_content = ""
         if "body" in email:
@@ -593,6 +621,44 @@ async def get_emails_chubby():
         
         # Map Instantly.ai fields to your frontend model
         transformed_email = {
+            "email_type": "received",
+            "unread": email.get("is_unread",True),
+            "id": email_id,
+            "thread_id":email.get("thread_id"),
+            "from": email.get("from_address_email", ""),
+            "to": email.get("to_address_email_list", ""),
+            "subject": email.get("subject", ""),
+            "date": date_str,
+            "status": restaurant_label,
+            "body": body_content,
+            "campaign": "Chubby Group Mega Campaign",
+            "replies": []  # Initialize with empty replies
+        }
+        
+        transformed_emails.append(transformed_email)
+
+    sent_response = await get_sent_emails()
+    sent = sent_response.get("items", [])
+    for idx, email in enumerate(sent):
+        # Extract the body content - prefer plain text for simplicity
+        body_content = ""
+        if "body" in email:
+            if isinstance(email["body"], dict):
+                body_content = email["body"].get("text", email["body"].get("html", ""))
+            else:
+                body_content = str(email["body"])
+        
+        # Format the date
+        date_str = format_date(email.get("timestamp_email", email.get("timestamp_created", "")))
+    
+        email_id = email.get("id") or idx + 1
+        
+        # Get status from cache or process it
+        restaurant_label = get_email_status(email_id, body_content, cache)
+        
+        # Map Instantly.ai fields to your frontend model
+        transformed_email = {
+            "email_type": "sent",
             "unread": email.get("is_unread",True),
             "id": email_id,
             "thread_id":email.get("thread_id"),
@@ -623,13 +689,13 @@ async def get_email_stats_chubby():
     """
     try:
         # Fetch all emails
-        raw_emails_response = get_unread_emails()
-        raw_emails = raw_emails_response.get("items", [])
+        received_response = get_unread_emails()
+        received = received_response.get("items", [])
         
         # Get the timestamp of each email and track positive replies by date
         email_dates = {}
         
-        for email in raw_emails:
+        for email in received:
             # Extract the email timestamp (use timestamp_email or timestamp_created)
             timestamp_str = email.get("timestamp_email", email.get("timestamp_created", ""))
             
@@ -908,6 +974,7 @@ VALID_INTENTS = [
     "Las Vegas, NV (The X Pot Las Vegas)",
     "Philadelphia, PA (Chubby Cattle Philadelphia)",
     "New York, NY (NIKU X)",
+    "Rowland Heights, CA (Chubby Cattle)",
     "General Interest",
     "Compensation",
     "Reservation Pending Confirmation",
