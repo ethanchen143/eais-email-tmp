@@ -27,7 +27,7 @@ class GptOperations:
     max_tokens = 2000
     def __init__(self, model="gpt-4.1-mini"):
         self.model = model
-        self.encoding = tiktoken.encoding_for_model(self.model)
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
     def count_tokens(self,text: str):
         """Returns the number of tokens in a text string."""
