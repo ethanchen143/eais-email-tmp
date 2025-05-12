@@ -17,15 +17,30 @@ from dotenv import load_dotenv
 # response = requests.get(url, headers=headers, params=query)
 # print(response.json())
 
-from playwright.sync_api import sync_playwright
+# from api import extract_restaurant_labels
+# extract_restaurant_labels("hello world")
 
-def scrape_page(url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.goto(url)
-        content = page.content()
-        browser.close()
-        return content
+import requests
+RESTAURANT_API_URL = "http://localhost:3000"
 
-print(scrape_page('https://www.converse.com/shop/p/converse-x-topo-chico-chuck-taylor-all-star-unisex-mid-shoe/A10455C.html'))
+url = RESTAURANT_API_URL + "/api/chubby/data"
+payload = {
+    "email": "ethanchen143@gmail.com",
+    "location": "Mikiya Wagyu Shabu House Houston"
+}
+
+response = requests.post(url, json=payload)
+
+print(response.status_code)
+print(response.json())
+
+# url = RESTAURANT_API_URL + "/api/chubby/data/e2e916f4-9711-403a-9802-40fb74483ab4/status"
+# payload = {
+#     "statusType": "interested",
+#     "newStatus": "pending"
+# }
+
+# response = requests.put(url, json=payload)
+
+# print(response.status_code)
+# print(response.json())

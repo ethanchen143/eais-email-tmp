@@ -13,14 +13,13 @@ from dotenv import load_dotenv
 from constants import get_keywords_prompt
 from pymongo import MongoClient
 import asyncio
-import json
 from fastapi import Query, HTTPException
 from typing import Dict
 from difflib import get_close_matches
 import re
 
 load_dotenv()
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 app = FastAPI()
 email_writer_module = EmailWriter()
 gpt_ops_module = GptOperations()
@@ -35,8 +34,8 @@ campaigns_collection = db["campaigns"]
 leads_collection = db["leads"]
 generated_emails_collection = db["generated_emails"]
 
-CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
-# CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
+# CAMPAIGN_ID = "a4682b71-34a6-4c82-bb4d-ed396b118e3e"
+CAMPAIGN_ID = "2ad45176-11ad-44d7-bd55-072ffba5363d"
 
 MENU_PATTERN = re.compile(
     r'California:.*?Houston:.*?(?:Other Cities:.*?Houston:.*?)(?:\n|$)', 
@@ -52,68 +51,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-def fetch_sending_accounts():
-    url = f"https://api.instantly.ai/api/v2/accounts?limit=10&status=1"
-    headers = {
-        'Authorization': f'Bearer {INS_API_KEY}',
-    }
-    response = requests.get(url, headers=headers)
-    return response.json()
-
-# create and set up campaign
-def create_campaign(campaign_name, email_title):
-    url = "https://api.instantly.ai/api/v2/campaigns"
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {INS_API_KEY}',
-    }
-    # get all email accounts
-    email_accounts = [item['email'] for item in fetch_sending_accounts()['items']]
-    data = {
-        "name": campaign_name,
-        'sequences': [{'steps': [{'type': 'email', 'delay': 2, 'variants': [{'subject': f'{email_title}', 'body': '{{personalization}}\n\n{{sendingAccountFirstName}}'}]}]}],
-        "email_list": email_accounts,
-        "campaign_schedule": {
-            "schedules": [
-                {
-                "name": "My Schedule",
-                "timing": {
-                    "from": "09:00",
-                    "to": "21:00"
-                },
-                "days": {
-                    0: True, 1: True, 2: True, 3: True, 4: True, 5: False, 6: False
-                },
-                "timezone": "America/Chicago",
-                }
-            ]
-        }
-    }
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()
-
-@app.get("/")
-async def root():
-    return {"Version": VERSION}
-
 from base64 import b64decode
 ZYTE_API_KEY = os.environ.get("ZYTE_API_KEY")
 
 def scrape_page(url):
-    # url = url.strip('/')
-    # headers = {'User-Agent': 'Mozilla/5.0'}
-    
-    # try:
-    #     response = requests.get(url, headers=headers)
-    #     response.raise_for_status()
-    # except Exception as e:
-    #     print(f"Failed to retrieve {url}: {e}")
-    #     return
-    
-    # soup = BeautifulSoup(response.content, 'html.parser')
-    # page_text = soup.get_text(separator='\n').strip()
-    # page_text = page_text.replace('\n', '').replace(' ', '')
-
     api_response = requests.post(
         "https://api.zyte.com/v1/extract",
         auth=(ZYTE_API_KEY, ""),
@@ -128,7 +69,6 @@ def scrape_page(url):
     
     return page_text
 
-
 @app.get("/get_keywords")
 async def get_keywords(
     product_url: str = Query(...),
@@ -136,8 +76,6 @@ async def get_keywords(
 ):
     product_page = scrape_page(product_url)
     brand_page = scrape_page(brand_url)
-    print(product_page)
-    print(brand_page)
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
         brand = brand_page, product = product_page
     )
@@ -150,6 +88,8 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
 
+
+from constants import get_product_info_prompt
 @app.get("/get_product_info")
 async def get_product_info(
     product_url: str = Query(...),
@@ -160,31 +100,15 @@ async def get_product_info(
     brand_page = scrape_page(brand_url)
     
     # Build the prompt manually without using format() to avoid JSON template issues
-    product_info_prompt_for_ds = """
-    ### Role and Task:
-    You are a seasoned marketing strategist specializing in product analysis. Extract key product information from the provided brand and product pages.
+    product_info_prompt = copy.deepcopy(get_product_info_prompt).format(
+        brand=brand_page, product=product_page
+    )
 
-    ### Brand Page: 
-    """ + brand_page + """
-
-    ### Product Page:
-    """ + product_page + """
-
-    ### Output Format:
-    Return ONLY a JSON object with the following fields, with no explanations or extra text:
-    {
-        "companyName": "Name of the company/brand",
-        "productName": "Name of the specific product",
-        "productSummary": "A concise 1-2 sentence summary of what the product is and does",
-        "sellingPoints": "3-5 key selling points or benefits of the product, separated by newlines"
-    }
-    """
-    
     try:
         # Call the GPT model (reusing your existing module)
         response, status = gpt_ops_module.call_gpt_openai_json(
-            prompt=product_info_prompt_for_ds,
-            model="gpt-4o-mini"
+            prompt=product_info_prompt,
+            model="gpt-4.1-mini"
         )
         
         # Try to extract valid JSON from the response regardless of format
@@ -198,8 +122,6 @@ async def get_product_info(
     
     except Exception as e:
         print(f"Error in get_product_info: {str(e)}")
-        print(f"Prompt was: {product_info_prompt_for_ds[:200]}...")  # Print first 200 chars
-        
         # Return default values as fallback
         return {
             "companyName": "Company Name",
@@ -270,185 +192,10 @@ def ensure_complete_product_info(info):
     
     return info
 
-
-
-""" add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
-@app.post("/add_campaign/")
-async def add_campaign(
-    name: str = Form(...),
-    initial_email_template: str = Form(""),
-    email_title: str = Form(""),
-    file: UploadFile = File(...)
-):
-    # Generate a random suffix to avoid duplicate names
-    random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
-    unique_name = f"{name}_{random_suffix}"  # Append random suffix to the name
-
-    if not email_title:
-        email_title = "Hello {{firstName}}!"
-    new_campaign_id = create_campaign(unique_name, email_title)['id']
-
-    try:
-            content = await file.read()
-            data = pd.read_csv(pd.io.common.BytesIO(content))  # Read CSV as Pandas DataFrame
-
-            # Convert DataFrame to structured format
-            lead_data = []
-            for _, row in data.iterrows():
-                lead_data.append({
-                    "username": row["username"],
-                    "name": row["full_name"],
-                    "bio": row["bio"],
-                    "desc": row["video_desc"],
-                    "email": row["email"],
-                })
-
-            # Insert leads under campaign_id
-            leads_collection.insert_one({
-                "campaign_id": new_campaign_id,
-                "data": lead_data
-            })
-        
-            #await f.write(content)
-    except Exception as e:
-        return {"status": f"File upload failed: {str(e)}"}
-
-    # Prepare campaign data
-    campaign_data = {
-        "campaign_name": unique_name,
-        "campaign_id": new_campaign_id,
-        "email_template": initial_email_template,
-        #"leads_file_path": file_path,
-        "intents": [],  
-        "responses": [], 
-        "status": "setup", # NEXT STAGE IS emailready, emailsent
-        "generated_email_path": ""
-    }
-    
-    # Insert into MongoDB
-    #campaigns_collection.insert_one(campaign_data)
-    result = campaigns_collection.insert_one(campaign_data)
-
-    # Convert `_id` to string for JSON response
-    campaign_data["_id"] = str(result.inserted_id)
-
-    return {"new_campaign_id": new_campaign_id, "status": "Campaign created successfully", "campaign": campaign_data}
-
-@app.post("/generate_emails/")
-async def generate_emails(campaign_id: str = Form(...),):
-
-    campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})  # Exclude `_id`
-    if campaign_data:
-        # campaign_name = campaign_data["campaign_name"]
-        campaign_id = campaign_data["campaign_id"]
-        email_template = campaign_data["email_template"]
-        generated_email_result = email_writer_module.generate_email( campaign_id, email_template)
-
-        if generated_email_result==False:
-            return {"status": "Failed to generate emails"}
-        # Update campaign data in MongoDB
-        campaigns_collection.update_one(
-            {"campaign_id": campaign_id},
-            {"$set": {
-            # "generated_email_path": generated_email_path,
-            "status": "emailready"
-        }})
-        return {"status": True}
-    else:
-        return {"status": "Failed to generate emails"}
-
-@app.get("/campaign/get_emails/{campaign_id}")
-def get_emails(campaign_id: str):
-    
-    emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
-
-    if not emails:
-        raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
-
-    return {"emails": emails["data"]}
-
-@app.post("/campaign/update_emails/{campaign_id}")
-def update_emails(campaign_id: str, emails: list[dict]):
-
-    # Update the emails in MongoDB (overwrite the existing "data" field)
-    result = generated_emails_collection.update_one(
-        {"campaign_id": campaign_id},
-        {"$set": {"data": emails}}
-    )
-
-    # Check if the campaign exists
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="No matching campaign found.")
-
-    # Check if the update was successful
-    if result.modified_count == 0:
-        raise HTTPException(status_code=500, detail="Failed to update emails. No changes detected.")
-
-    return {"status": "Success", "message": "Emails updated successfully."}
-
-def start_campaign(id):
-    url = f"https://api.instantly.ai/api/v2/campaigns/{id}/activate"
-    headers = {
-        'Authorization': f'Bearer {INS_API_KEY}',
-    }
-    response = requests.post(url, headers=headers)
-    return response.json()
-
-def add_leads_to_campaign(campaign_id: str):
-    campaign_emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0, "data": 1})
-    if not campaign_emails or "data" not in campaign_emails:
-        raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
-
-    url = "https://api.instantly.ai/api/v2/leads"
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {INS_API_KEY}',
-    }
-
-    successful_uploads = 0
-    failed_uploads = []
-
-    for email_entry in campaign_emails["data"]:
-        data = {
-            "campaign": campaign_id,
-            "email": email_entry["email"],
-            "first_name": email_entry["username"],
-            "last_name": email_entry["full_name"],
-            "personalization": email_entry["email_pitch"]
-        }
-
-        response = requests.post(url, headers=headers, json=data)
-
-        if response.status_code == 200:  
-            successful_uploads += 1
-        else:
-            failed_uploads.append({
-                "email": email_entry["email"],
-                "error": response.text
-            })
-        
-    return {
-        "status": "Success",
-        "message": f"{successful_uploads} leads added successfully.",
-        "failed_uploads": failed_uploads
-    }
-
-""" add leads to campaign and start campaign. """
-@app.post("/send_emails/")
-async def send_emails(campaign_id: str = Form(...)):
-    campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id})
-    if campaign_data:
-        add_leads_to_campaign(campaign_id)
-        start_campaign(campaign_id)
-        campaigns_collection.update_one(
-            {"campaign_id": campaign_id},
-            {"$set": {"status": "emailsent"}})
-        return {"status": True}
-    else:
-        return {"status": "Failed to send emails"}
+### CHUBBY GROUP INBOX CODE ###
 
 import httpx
-
+# get receieved, unread email, for autoreply
 async def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
@@ -550,12 +297,8 @@ def format_date(timestamp_str):
         # Fallback if parsing fails
         return timestamp_str
 
-### CHUBBY GROUP INBOX CODE ###
-
-# TODO: update to chubby group's campaign id
-import json
-import os
-from chubby import extract_influencer_response, extract_restaurant_labels
+from openai import OpenAI
+OPENAI_API_KEY = os.getenv("GPT_API_KEY")
 
 # File to store the cache
 CACHE_FILE = "email_status_cache.json"
@@ -576,6 +319,46 @@ def save_cache(cache):
     with open(CACHE_FILE, 'w') as f:
         json.dump(cache, f, indent=2)
 
+def get_restaurants():
+    restaurants = requests.get("https://backend.creatorain.com/", verify=False).json()
+    return [{"name":r["name"],"location":r['location'],"priceRange":r['priceRange']} for r in restaurants]
+
+def extract_restaurant_labels(influencer_response):
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    
+    restaurants = get_restaurants()
+    prompt = f"""
+    Based on the influencer's response below, identify which restaurant they want to work with.
+    Handle misspellings, and variations in naming.
+
+    Known restaurants:
+    {';'.join([r['name'] for r in restaurants])}
+    
+    If an influencer did not mention a specific restaurant but mentioned a broader geolocation, return one of the following locations:
+    {';'.join(set([r['location'] for r in restaurants]))}
+
+    If nothing can be inferred, or if it's unclear, only return "Ambiguous".
+
+    Return ONLY a string with the standardized names from the Chubby Group, e.g. "Chubby Cattle BBQ Las Vegas" or location, e.g. "Los Angeles, CA".
+    
+    INFLUENCER RESPONSE:
+    {influencer_response}
+    """
+
+    # print(prompt)
+    
+    response = client.chat.completions.create(  
+        model="gpt-4.1-mini", 
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that extracts restaurant preferences from text."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3
+    )
+    
+    return response.choices[0].message.content.strip()
+
+# generate label
 def get_email_status(email_id, body_content, cache=None):
     """Get the email status, either from cache or by processing it"""
     if cache is None:
@@ -583,7 +366,7 @@ def get_email_status(email_id, body_content, cache=None):
     # Check if the email ID is in the cache
     if str(email_id) in cache:
         return cache[str(email_id)]
-    print('generating labels with gpt')
+    print('Generating labels with gpt')
     # If not in cache, process the email
     influencer_response = re.sub(MENU_PATTERN, "", body_content)
     restaurant_label = extract_restaurant_labels(influencer_response)
@@ -592,6 +375,16 @@ def get_email_status(email_id, body_content, cache=None):
     save_cache(cache)
     return restaurant_label
 
+def get_email_status_with_id(email_id):
+    """Get the email status, either from cache or by processing it"""
+    cache = load_cache()
+    # Check if the email ID is in the cache
+    if str(email_id) in cache:
+        return cache[str(email_id)]
+    else:
+        return "nope"
+
+# for demo frontend
 @app.post("/get_emails_chubby/")
 async def get_emails_chubby():
     # Fetch emails from Instantly.ai API
@@ -677,7 +470,7 @@ async def get_emails_chubby():
     # Return the transformed emails with CORS headers
     return transformed_emails
 
-
+# for demo frontend data visualization
 @app.get("/get_email_stats_chubby/")
 async def get_email_stats_chubby():
     """
@@ -935,7 +728,6 @@ async def reply_to_email(request: EmailReplyRequest):
             "mark_as_read_status": mark_as_read_status
         }
 
-# Forward email functionality (similar to reply but with different formatting)
 @app.post("/forward_email")
 async def forward_email(request: EmailReplyRequest):
     """
@@ -952,46 +744,8 @@ async def forward_email(request: EmailReplyRequest):
     # Call the reply endpoint with the forward formatting
     return await reply_to_email(request)
 
-
-from chubby_restaurant_data import restaurant_details
-import re
+from constants import restaurant_details
 from collections import Counter
-
-VALID_INTENTS = [
-    "Los Angeles, CA (Chubby Curry – Covina)",
-    "Los Angeles, CA (Chubby Curry – Beverly Hills)",
-    "Los Angeles, CA (Chubby Cattle Little Tokyo)",
-    "Los Angeles, CA (NIKU X)",
-    "Pleasanton, CA (Chubby Cattle)",
-    "Monterey Park, CA (Chubby Cattle Monterey Park)",
-    "Cerritos, CA (Mikiya Wagyu Shabu House Cerritos)",
-    "Houston, TX (Mikiya Wagyu Shabu House Houston)",
-    "Chicago, IL (Chubby Cattle Chicago)",
-    "Chicago, IL (Wagyu House by The X Pot)",
-    "Las Vegas, NV (Chubby Cattle Las Vegas)",
-    "Las Vegas, NV (The X Pot Las Vegas)",
-    "Philadelphia, PA (Chubby Cattle Philadelphia)",
-    "New York, NY (NIKU X)",
-    "Rowland Heights, CA (Chubby Cattle)",
-    "General Interest",
-    "Compensation",
-    "Reservation Pending Confirmation",
-    "Human Needed"
-]
-
-# A tiny few-shot set to anchor the model
-FEW_SHOT_EXAMPLES = [
-    {"email": "Hi—I’d love to collaborate at Covina please!", 
-     "intent": "Los Angeles, CA (Chubby Curry – Covina)"},
-    {"email": "I only work with paid collaboration / do i get commission? / Are you offering paid posts or just the meal?", 
-     "intent": "Compensation"},
-    {"email": "I’m interested, could you send me more details?", 
-     "intent": "General Interest"},
-    {"email": "Thanks, bye.", 
-     "intent": "Human Needed"},
-    {"email": "Does 3:30pm this Friday work for the reservation?", 
-    "intent": "Reservation Coordination"}
-]
 
 async def handle_email(
     body: str,
@@ -1007,21 +761,32 @@ async def handle_email(
         influencer_name = influencer_email_address.split('@')[0].capitalize()
     marketer_name = marketer_name.replace("ChubbyGroup", "").replace("Chubby Group", "")
 
-    # —————————— 1) Strip menu block with regex ——————————
     body = re.sub(MENU_PATTERN, "", body)
-
-    # —————————— 2) Extract the actual reply portion ——————————
-    # normalize once
     normalized_body = " ".join(body.casefold().split())
 
-    # prepare the three variants
-    full_variant      = normalized_body
-
     variants = {
-        "full_email": full_variant,
-        "last_response": full_variant,
-        "truncated_email": full_variant,
+        "full_email": normalized_body,
+        "last_response": normalized_body,
+        "truncated_email": normalized_body,
     }
+    restaurants = get_restaurants()
+
+    VALID_LOCATIONS = [r['name'] for r in restaurants] + list(set([r['location'] for r in restaurants])) 
+    VALID_INTENTS = VALID_LOCATIONS + [ "Compensation", "Posting Requirements", "Ambiguous"]
+
+    # A tiny few-shot set to anchor the model
+    FEW_SHOT_EXAMPLES = [
+        {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
+        "intent": "Chubby Curry – Covina"},
+        {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
+        "intent": "Los Angeles, CA"},
+        {"email": "I only work with paid collaboration / do i get commission? / Are you offering paid posts or just the meal? / flat fee", 
+        "intent": "Compensation"},
+        {"email": "Do I need to post on both TikTok and Instagram? Can I just post a story", 
+        "intent": "Posting Requirements"},
+        {"email": "I'd love to work with you, does 5pm on Thursday work? How many guests can I bring?", 
+        "intent": "Ambiguous"}
+    ]
 
     intents = []
     for name, text in variants.items():
@@ -1036,23 +801,38 @@ async def handle_email(
             {
                 "role": "system",
                 "content": (
-                    "You are an email intent classifier. "
-                    "Return ONLY {\"intent\": \"<one of the valid intents>\"}."
+                    "You are an intent classifier for influencer email replies.\n"
+                    "Your task is to read the email content and classify it into **one** of the provided valid intents.\n"
+                    "\n"
+                    "Valid intents may be:\n"
+                    "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
+                    "- Preferred locations (e.g., 'Los Angeles, CA')\n"
+                    "- General categories like 'Compensation', 'Posting Requirements', or 'Ambiguous'\n"
+                    "\n"
+                    "**Return ONLY a JSON object in this format:**\n"
+                    "{\"intent\": \"<one of the valid intents>\"}\n"
+                    "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
+                    "If the intent is unclear or not in the list, return: {\"intent\": \"Ambiguous\"}"
                 )
             },
-            {"role": "user", "content": user_payload}
+            {
+                "role": "user",
+                "content": user_payload
+            }
         ]
 
         resp, _ = gpt_ops_module.call_gpt_openai(
             messages,
-            model="gpt-4o-mini",
+            model="gpt-4.1-mini",
             temperature=0,
             max_tokens=20
         )
+
         print("GPT raw response:", resp)
+
         intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
         guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
-        intent = guess[0] if guess else "Human Needed"
+        intent = guess[0] if guess else "Ambiguous"
         intents.append(intent)
 
     # majority vote
@@ -1061,77 +841,127 @@ async def handle_email(
     if freq >= 2:
         intent = most_common
     else:
-        intent = "Human Needed"
+        intent = "Ambiguous"
 
-    # Get the response template for the detected intent
-    if "Human Needed" in intent:
-        print('human needed')
-        return
-    if "Compensation" in intent:
+    request = LabelModificationRequest(email_id=id, new_label=intent)
+    await modify_email_label(request)
+
+    RESTAURANT_API_URL = "http://localhost:3000"
+
+    async def talk_to_restaurant_backend(restaurant_name):
+        url = RESTAURANT_API_URL + "/api/chubby/data"
+        payload = {
+            "email": influencer_email_address,
+            "location": restaurant_name,  
+        }
+        response = requests.post(url, json=payload)
+        if response.status_code != 201:
+            print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
+            return
+        
+        id = response.json()['id']
+        url = RESTAURANT_API_URL + f"/api/chubby/data/{id}/status"
+        payload = {
+            "statusType": "interested",
+            "newStatus": "pending"
+        }
+        response = requests.put(url, json=payload)
+        if response.status_code != 201:
+            print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
+            return
+        
+        request = LabelModificationRequest(email_id=thread_id, new_label="finished")
+        await modify_email_label(request)
+
+    if "Ambiguous" in intent:
+        # reply and ask for location details
+        user_payload = json.dumps({
+            "incoming_email": text,
+            "valid_restaurants": VALID_LOCATIONS
+        }, indent=2)
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a marketer working on a affiliate outreach campaign."
+                    "Your task is find out what specific restaurant / location would the influencer prefer. "
+                    "You just got an ambiguous email from an influencer who did not provide a valid location and is instead asking for something else"
+                    "Write a appropriate and concise response that tells them it varies by location and provide the valid restaurants / locations for them to choose again."
+                    "Valid restaurants may be:\n"
+                    "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
+                    "- Preferred locations (e.g., 'Los Angeles, CA')\n"
+                    "**Return ONLY a JSON object in this format:**\n"
+                    "{\"email\": \"email body\"}\n"
+                    "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
+                )
+            },
+            {
+                "role": "user",
+                "content": user_payload
+            }
+        ]
+
+        resp, _ = gpt_ops_module.call_gpt_openai(
+            messages,
+            model="gpt-4.1-mini",
+            temperature=0,
+            max_tokens=20
+        )
+
+        response = resp.get("email", "").strip() if isinstance(resp, dict) else resp.strip()
+
+
+    elif intent in set([r['location'] for r in restaurants]):
+        lowest_price_choices = []
+        lowest_price = float('inf')
+        for r in restaurants:
+            if r['location'] == intent and len(r['priceRange']) < lowest_price:
+                lowest_price_choices = [r['name']]
+            if r['location'] == intent and len(r['priceRange']) == lowest_price:
+                lowest_price_choices.append(r['name'])
+        # pick one of the lowest price choices
+        intent = random.choice(lowest_price_choices)
+        await talk_to_restaurant_backend(intent)
+        # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
+        response = f"""
+            Hi {influencer_name},
+            Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
+            Best,
+            {marketer_name}
+            Chubby Group
+        """
+
+    elif intent in [r['name'] for r in restaurants]:    
+        await talk_to_restaurant_backend(intent)
+        # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
+        response = f"""
+            Hi {influencer_name},
+            Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
+            Best,
+            {marketer_name}
+            Chubby Group
+        """
+
+    elif "Compensation" in intent:
         response = f"""
             Hi {influencer_name},
             As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
             While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
-            Let us know if you're interested in moving forward:
-            a) Preferred Location
-            b) Date and time for the visit (Preferably a weekday or Friday/Sunday noon)
-            c) Full name for reservation
-            d) A contact phone number
-            e) Any dietary restrictions 
+            Please let us know your preferred location / restaurant if you're interested in moving forward.
             Best,
             {marketer_name}
             Chubby Group
         """
-    elif "General Interest" in intent:
+    elif "Posting Requirements" in intent:
+        # TODO: email template for posting requirements
         response = f"""
-            Hi {influencer_name},
-            Thank you so much for your interest in details about Chubby Group — we're thrilled about the potential of working together!
-            We’re currently offering a complimentary fine dining experience for you and a guest (valued between $120–$180) in exchange for your authentic content on Instagram and/or TikTok. During your visit, we’d love for you to highlight:
-            The flavor, texture, and superior quality of our purebred A5 Wagyu beef and imported seafood, flown in daily from Japan
-            The presentation and consistency of our culinary creations
-            The overall ambiance and level of service we provide
-            While we’re not offering additional monetary compensation for this collaboration, we’re confident this experience will provide plenty of premium content that aligns with your audience and creative style.
-            Let us know if you're interested in moving forward:
-            a) Preferred Location
-            b) Date and time for the visit (Preferably a weekday or Friday/Sunday noon)
-            c) Full name for reservation
-            d) A contact phone number
-            e) Any dietary restrictions
-            Feel free check out the details and upload your video directly to our platform here: https://influencers.creatorain.com/auth/creator-signup/chubby-group
-            Best,
-            {marketer_name}
-            Chubby Group
-        """
-    elif "Reservation Pending Confirmation" in intent:
-        response = f"""
-            Hi {influencer_name},
-            Thank you for your patience, and I apologize for the delay in getting back to you. 
-            We’ve been experiencing a very high volume of guest activity at the restaurant, and our schedules have been tighter than usual. I’ve been coordinating with the location manager to see if we can make your reservation work, I'll try to get back to you asap.
-            Thank you again for your understanding, and I truly appreciate your partnership!
-            Best,
-            {marketer_name}
-        """
-    else:
-        match = re.search(r'\((.*?)\)', intent)
-        restaurant_name = match.group(1) if match else "Chubby Restaurants"
-        # intent is restaurant name here
-        response = f"""
-            Dear {influencer_name},
-            Thank you for your interest in {restaurant_name} — we are excited to have you!​ I am confirming your reservation with our manager now, and you’ll get a final confirmation email shortly.
-            Your visit includes a complimentary dining experience for you and a guest, and we'd love if you shared your authentic experience with your Instagram and TikTok audiences, highlighting:
-            
-            {restaurant_details.get(intent,'')}
-
-            Feel free to follow the guidelines, but don’t hesitate to add your own flair — we want it to match your style. You can find more details and upload your content here:
-            https://influencers.creatorain.com/auth/creator-signup/chubby-group
-
-            In the meantime, could you please share:
-            a) Full name for reservation
-            b) A contact phone number
-            c) Any dietary restrictions
-
-            Best,
-            {marketer_name}
+        Hi {influencer_name},
+        Thanks for checking in! As part of the collaboration, we require one TikTok video and one Instagram Reel showcasing your experience.
+        Please let us know your preferred location / restaurant if you're interested in moving forward.
+        Best,  
+        {marketer_name}  
+        Chubby Group
         """
 
     request = EmailReplyRequest(
@@ -1169,11 +999,9 @@ async def auto_reply_process(campaign_id: str):
                      continue
                 
                 # avoid sending twice
-                if "Thanks for your interest in collaborating with Chubby Group" in body \
-                or "Thank you so much for your interest in details about Chubby Group" in body \
-                or "Thank you for your interest in" in body \
-                or "As compensation for your authentic coverage" in body \
-                or "Thank you for your patience" in body:
+                label = get_email_status_with_id(email_id)
+                thread_label = get_email_status_with_id(thread_id)
+                if label == "nope" or thread_label == "finished":
                     continue
 
                 influencer_email_address = from_address_list[0].get('address')
@@ -1192,7 +1020,7 @@ async def auto_reply_process(campaign_id: str):
             except Exception as handle_err:
                 print(f"Unexpected error handling email {email.get('id', 'N/A')} for {campaign_id}: {handle_err}")
 
-        await asyncio.sleep(600)
+        await asyncio.sleep(60)
 
 active_tasks = {}
 
@@ -1214,3 +1042,226 @@ async def set_auto_reply(campaign_id: str = Form(...)):
         task.cancel()
         return {"status": "Success", "message": f"Auto Reply stopped for Campaign {campaign_id}"}
     return {"status": "Fail", "message": f"No auto reply process found for Campaign {campaign_id}"}
+
+# Instantly.ai auto campaign creation - done manually
+
+def fetch_sending_accounts():
+    url = f"https://api.instantly.ai/api/v2/accounts?limit=10&status=1"
+    headers = {
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+# create and set up campaign
+
+def create_campaign(campaign_name, email_title):
+    url = "https://api.instantly.ai/api/v2/campaigns"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {INS_API_KEY}',
+    }
+    # get all email accounts
+    email_accounts = [item['email'] for item in fetch_sending_accounts()['items']]
+    data = {
+        "name": campaign_name,
+        'sequences': [{'steps': [{'type': 'email', 'delay': 2, 'variants': [{'subject': f'{email_title}', 'body': '{{personalization}}\n\n{{sendingAccountFirstName}}'}]}]}],
+        "email_list": email_accounts,
+        "campaign_schedule": {
+            "schedules": [
+                {
+                "name": "My Schedule",
+                "timing": {
+                    "from": "09:00",
+                    "to": "21:00"
+                },
+                "days": {
+                    0: True, 1: True, 2: True, 3: True, 4: True, 5: False, 6: False
+                },
+                "timezone": "America/Chicago",
+                }
+            ]
+        }
+    }
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+@app.get("/")
+async def root():
+    return {"Version": VERSION}
+
+
+# """ add campaignn: create campaign, link the sending accounts to campaign, store campaign info """
+# @app.post("/add_campaign/")
+# async def add_campaign(
+#     name: str = Form(...),
+#     initial_email_template: str = Form(""),
+#     email_title: str = Form(""),
+#     file: UploadFile = File(...)
+# ):
+#     # Generate a random suffix to avoid duplicate names
+#     random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+#     unique_name = f"{name}_{random_suffix}"  # Append random suffix to the name
+
+#     if not email_title:
+#         email_title = "Hello {{firstName}}!"
+#     new_campaign_id = create_campaign(unique_name, email_title)['id']
+
+#     try:
+#             content = await file.read()
+#             data = pd.read_csv(pd.io.common.BytesIO(content))  # Read CSV as Pandas DataFrame
+
+#             # Convert DataFrame to structured format
+#             lead_data = []
+#             for _, row in data.iterrows():
+#                 lead_data.append({
+#                     "username": row["username"],
+#                     "name": row["full_name"],
+#                     "bio": row["bio"],
+#                     "desc": row["video_desc"],
+#                     "email": row["email"],
+#                 })
+
+#             # Insert leads under campaign_id
+#             leads_collection.insert_one({
+#                 "campaign_id": new_campaign_id,
+#                 "data": lead_data
+#             })
+        
+#             #await f.write(content)
+#     except Exception as e:
+#         return {"status": f"File upload failed: {str(e)}"}
+
+#     # Prepare campaign data
+#     campaign_data = {
+#         "campaign_name": unique_name,
+#         "campaign_id": new_campaign_id,
+#         "email_template": initial_email_template,
+#         #"leads_file_path": file_path,
+#         "intents": [],  
+#         "responses": [], 
+#         "status": "setup", # NEXT STAGE IS emailready, emailsent
+#         "generated_email_path": ""
+#     }
+    
+#     # Insert into MongoDB
+#     #campaigns_collection.insert_one(campaign_data)
+#     result = campaigns_collection.insert_one(campaign_data)
+
+#     # Convert `_id` to string for JSON response
+#     campaign_data["_id"] = str(result.inserted_id)
+
+#     return {"new_campaign_id": new_campaign_id, "status": "Campaign created successfully", "campaign": campaign_data}
+
+# @app.post("/generate_emails/")
+# async def generate_emails(campaign_id: str = Form(...),):
+
+#     campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})  # Exclude `_id`
+#     if campaign_data:
+#         # campaign_name = campaign_data["campaign_name"]
+#         campaign_id = campaign_data["campaign_id"]
+#         email_template = campaign_data["email_template"]
+#         generated_email_result = email_writer_module.generate_email( campaign_id, email_template)
+
+#         if generated_email_result==False:
+#             return {"status": "Failed to generate emails"}
+#         # Update campaign data in MongoDB
+#         campaigns_collection.update_one(
+#             {"campaign_id": campaign_id},
+#             {"$set": {
+#             # "generated_email_path": generated_email_path,
+#             "status": "emailready"
+#         }})
+#         return {"status": True}
+#     else:
+#         return {"status": "Failed to generate emails"}
+
+# @app.get("/campaign/get_emails/{campaign_id}")
+# def get_emails(campaign_id: str):
+    
+#     emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0})
+
+#     if not emails:
+#         raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
+
+#     return {"emails": emails["data"]}
+
+# @app.post("/campaign/update_emails/{campaign_id}")
+# def update_emails(campaign_id: str, emails: list[dict]):
+
+#     # Update the emails in MongoDB (overwrite the existing "data" field)
+#     result = generated_emails_collection.update_one(
+#         {"campaign_id": campaign_id},
+#         {"$set": {"data": emails}}
+#     )
+
+#     # Check if the campaign exists
+#     if result.matched_count == 0:
+#         raise HTTPException(status_code=404, detail="No matching campaign found.")
+
+#     # Check if the update was successful
+#     if result.modified_count == 0:
+#         raise HTTPException(status_code=500, detail="Failed to update emails. No changes detected.")
+
+#     return {"status": "Success", "message": "Emails updated successfully."}
+
+# def start_campaign(id):
+#     url = f"https://api.instantly.ai/api/v2/campaigns/{id}/activate"
+#     headers = {
+#         'Authorization': f'Bearer {INS_API_KEY}',
+#     }
+#     response = requests.post(url, headers=headers)
+#     return response.json()
+
+# def add_leads_to_campaign(campaign_id: str):
+#     campaign_emails = generated_emails_collection.find_one({"campaign_id": campaign_id}, {"_id": 0, "data": 1})
+#     if not campaign_emails or "data" not in campaign_emails:
+#         raise HTTPException(status_code=404, detail="No generated emails found for this campaign.")
+
+#     url = "https://api.instantly.ai/api/v2/leads"
+#     headers = {
+#         'Content-Type': 'application/json',
+#         'Authorization': f'Bearer {INS_API_KEY}',
+#     }
+
+#     successful_uploads = 0
+#     failed_uploads = []
+
+#     for email_entry in campaign_emails["data"]:
+#         data = {
+#             "campaign": campaign_id,
+#             "email": email_entry["email"],
+#             "first_name": email_entry["username"],
+#             "last_name": email_entry["full_name"],
+#             "personalization": email_entry["email_pitch"]
+#         }
+
+#         response = requests.post(url, headers=headers, json=data)
+
+#         if response.status_code == 200:  
+#             successful_uploads += 1
+#         else:
+#             failed_uploads.append({
+#                 "email": email_entry["email"],
+#                 "error": response.text
+#             })
+        
+#     return {
+#         "status": "Success",
+#         "message": f"{successful_uploads} leads added successfully.",
+#         "failed_uploads": failed_uploads
+#     }
+
+# """ add leads to campaign and start campaign. """
+# @app.post("/send_emails/")
+# async def send_emails(campaign_id: str = Form(...)):
+#     campaign_data = campaigns_collection.find_one({"campaign_id": campaign_id})
+#     if campaign_data:
+#         add_leads_to_campaign(campaign_id)
+#         start_campaign(campaign_id)
+#         campaigns_collection.update_one(
+#             {"campaign_id": campaign_id},
+#             {"$set": {"status": "emailsent"}})
+#         return {"status": True}
+#     else:
+#         return {"status": "Failed to send emails"}
