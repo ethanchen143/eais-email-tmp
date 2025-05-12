@@ -88,7 +88,6 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
 
-
 from constants import get_product_info_prompt
 @app.get("/get_product_info")
 async def get_product_info(
