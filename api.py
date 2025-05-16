@@ -233,7 +233,7 @@ async def get_received_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "10",
+        "limit": "100",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
@@ -261,7 +261,7 @@ async def get_sent_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "10",
+        "limit": "100",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "sent"
@@ -321,7 +321,7 @@ def save_cache(cache):
 def get_restaurants():
     response = requests.get("https://backend.creatorain.com/", verify=False).json()
 
-    # This expects the response to be a dict with a 'restaurants' key
+    # expects the response to be a dict with a 'restaurants' key
     restaurants = response.get("restaurants")
     if not isinstance(restaurants, list):
         raise ValueError("Expected a list of restaurants, but got:", response)
