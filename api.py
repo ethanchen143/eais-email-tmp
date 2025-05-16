@@ -199,7 +199,7 @@ async def get_unread_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "50",
+        "limit": "100",
         "campaign_id": CAMPAIGN_ID,
         "is_unread": "true",
         "ai_interest_value": "0.75", # Keep as string if API expects string
@@ -233,7 +233,7 @@ async def get_received_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "100",
+        "limit": "10",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "received"
@@ -261,7 +261,7 @@ async def get_sent_emails():
     # Fetch emails from Instantly.ai API
     url = "https://api.instantly.ai/api/v2/emails"
     query = {
-        "limit": "100",
+        "limit": "10",
         "campaign_id": CAMPAIGN_ID,
         "i_status": "1", # Keep as string if API expects string
         "email_type": "sent"
@@ -319,8 +319,17 @@ def save_cache(cache):
         json.dump(cache, f, indent=2)
 
 def get_restaurants():
-    restaurants = requests.get("https://backend.creatorain.com/", verify=False).json()
-    return [{"name":r["name"],"location":r['location'],"priceRange":r['priceRange']} for r in restaurants]
+    response = requests.get("https://backend.creatorain.com/", verify=False).json()
+
+    # This expects the response to be a dict with a 'restaurants' key
+    restaurants = response.get("restaurants")
+    if not isinstance(restaurants, list):
+        raise ValueError("Expected a list of restaurants, but got:", response)
+
+    return [
+        {"name": r["name"], "location": r["location"], "priceRange": r["priceRange"]}
+        for r in restaurants
+    ]
 
 def extract_restaurant_labels(influencer_response):
     client = OpenAI(api_key=OPENAI_API_KEY)
