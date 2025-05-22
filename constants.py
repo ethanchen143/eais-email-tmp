@@ -586,12 +586,12 @@ You are a seasoned marketing strategist specializing in product analysis. Extrac
 
 ### Output Format:
 Return ONLY a JSON object with the following fields, with no explanations or extra text:
-{
+{{
 "companyName": "Name of the company/brand",
 "productName": "Name of the specific product",
 "productSummary": "A concise 1-2 sentence summary of what the product is and does",
 "sellingPoints": "3-5 key selling points or benefits of the product, separated by newlines"
-}
+}}
 """
 
 

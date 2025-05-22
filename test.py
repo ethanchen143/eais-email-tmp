@@ -57,7 +57,7 @@ url = "https://api.instantly.ai/api/v2/emails"
 query = {
   "limit": "100",
   "campaign_id": CAMPAIGN_ID,
-  "email_type": "received"
+  "email_type": "sent"
 }
 
 INS_API_KEY = os.environ.get("INSTANTLY_API_KEY")
@@ -74,5 +74,5 @@ data = response.json()
 import json
 
 # Save the data to a file
-with open("instantly_sent_1.json", "w") as f:
+with open("new_sent.json", "w") as f:
     json.dump(data, f, indent=2)
