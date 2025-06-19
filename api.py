@@ -777,32 +777,11 @@ async def handle_email(
         "last_response": normalized_body,
         "truncated_email": normalized_body,
     }
-    restaurants = get_restaurants()
-
-    VALID_LOCATIONS = [r['name'] for r in restaurants] + list(set([r['location'] for r in restaurants])) 
-    VALID_INTENTS = VALID_LOCATIONS + [ "Compensation", "Posting Requirements", "Ambiguous"]
-
-    # A tiny few-shot set to anchor the model
-    FEW_SHOT_EXAMPLES = [
-        {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
-        "intent": "Chubby Curry – Covina"},
-        {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
-        "intent": "Los Angeles, CA"},
-        {"email": "I only work with paid collaboration / do i get commission? / Are you offering paid posts or just the meal? / flat fee", 
-        "intent": "Compensation"},
-        {"email": "Do I need to post on both TikTok and Instagram? Can I just post a story", 
-        "intent": "Posting Requirements"},
-        {"email": "I'd love to work with you, does 5pm on Thursday work? How many guests can I bring?", 
-        "intent": "Ambiguous"}
-    ]
-
     intents = []
     for name, text in variants.items():
         # rebuild the user message each time with the new email text
         user_payload = json.dumps({
             "email": text,
-            "valid_intents": VALID_INTENTS,
-            "examples": FEW_SHOT_EXAMPLES
         }, indent=2)
 
         messages = [
@@ -812,11 +791,9 @@ async def handle_email(
                     "You are an intent classifier for influencer email replies.\n"
                     "Your task is to read the email content and classify it into **one** of the provided valid intents.\n"
                     "\n"
-                    "Valid intents may be:\n"
-                    "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
-                    "- Preferred locations (e.g., 'Los Angeles, CA')\n"
-                    "- General categories like 'Compensation', 'Posting Requirements', or 'Ambiguous'\n"
-                    "\n"
+                    "Valid intents:\n"
+                    "- Interested\n"
+                    "- Not Interested\n"
                     "**Return ONLY a JSON object in this format:**\n"
                     "{\"intent\": \"<one of the valid intents>\"}\n"
                     "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
@@ -839,8 +816,6 @@ async def handle_email(
         print("GPT raw response:", resp)
 
         intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
-        guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
-        intent = guess[0] if guess else "Ambiguous"
         intents.append(intent)
 
     # majority vote
@@ -854,122 +829,21 @@ async def handle_email(
     request = LabelModificationRequest(email_id=id, new_label=intent)
     await modify_email_label(request)
 
-    RESTAURANT_API_URL = "http://localhost:3000"
-
-    async def talk_to_restaurant_backend(restaurant_name):
-        url = RESTAURANT_API_URL + "/api/chubby/data"
-        payload = {
-            "email": influencer_email_address,
-            "location": restaurant_name,  
-        }
-        response = requests.post(url, json=payload)
-        if response.status_code != 201:
-            print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
-            return
-        
-        id = response.json()['id']
-        url = RESTAURANT_API_URL + f"/api/chubby/data/{id}/status"
-        payload = {
-            "statusType": "interested",
-            "newStatus": "pending"
-        }
-        response = requests.put(url, json=payload)
-        if response.status_code != 201:
-            print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
-            return
-        
-        request = LabelModificationRequest(email_id=thread_id, new_label="finished")
-        await modify_email_label(request)
-
     if "Ambiguous" in intent:
-        # reply and ask for location details
-        user_payload = json.dumps({
-            "incoming_email": text,
-            "valid_restaurants": VALID_LOCATIONS
-        }, indent=2)
+        # do nothing
+        return
 
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a marketer working on a affiliate outreach campaign."
-                    "Your task is find out what specific restaurant / location would the influencer prefer. "
-                    "You just got an ambiguous email from an influencer who did not provide a valid location and is instead asking for something else"
-                    "Write a appropriate and concise response that tells them it varies by location and provide the valid restaurants / locations for them to choose again."
-                    "Valid restaurants may be:\n"
-                    "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
-                    "- Preferred locations (e.g., 'Los Angeles, CA')\n"
-                    "**Return ONLY a JSON object in this format:**\n"
-                    "{\"email\": \"email body\"}\n"
-                    "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
-                )
-            },
-            {
-                "role": "user",
-                "content": user_payload
-            }
-        ]
+    elif intent == "Not Interested":
+        # do nothing
+        return
 
-        resp, _ = gpt_ops_module.call_gpt_openai(
-            messages,
-            model="gpt-4.1-mini",
-            temperature=0,
-            max_tokens=20
-        )
-
-        response = resp.get("email", "").strip() if isinstance(resp, dict) else resp.strip()
-
-
-    elif intent in set([r['location'] for r in restaurants]):
-        lowest_price_choices = []
-        lowest_price = float('inf')
-        for r in restaurants:
-            if r['location'] == intent and len(r['priceRange']) < lowest_price:
-                lowest_price_choices = [r['name']]
-            if r['location'] == intent and len(r['priceRange']) == lowest_price:
-                lowest_price_choices.append(r['name'])
-        # pick one of the lowest price choices
-        intent = random.choice(lowest_price_choices)
-        await talk_to_restaurant_backend(intent)
-        # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
-        response = f"""
-            Hi {influencer_name},
-            Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
-            Best,
-            {marketer_name}
-            Chubby Group
-        """
-
-    elif intent in [r['name'] for r in restaurants]:    
-        await talk_to_restaurant_backend(intent)
-        # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
-        response = f"""
-            Hi {influencer_name},
-            Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
-            Best,
-            {marketer_name}
-            Chubby Group
-        """
-
-    elif "Compensation" in intent:
-        response = f"""
-            Hi {influencer_name},
-            As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
-            While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
-            Please let us know your preferred location / restaurant if you're interested in moving forward.
-            Best,
-            {marketer_name}
-            Chubby Group
-        """
-    elif "Posting Requirements" in intent:
-        # TODO: email template for posting requirements
-        response = f"""
+    elif intent == "Interested":
+        response = """
         Hi {influencer_name},
-        Thanks for checking in! As part of the collaboration, we require one TikTok video and one Instagram Reel showcasing your experience.
-        Please let us know your preferred location / restaurant if you're interested in moving forward.
-        Best,  
-        {marketer_name}  
-        Chubby Group
+        Thank you so much for your interest, so excited that you’d like to collaborate with us! I’ve already contacted the manager of this location to check their availability for collaboration reservation. I’ll get back to you with the details as soon as I hear from them.
+
+        Talk to you very soon!
+        Chubby Group Collaboration Team
         """
 
     request = EmailReplyRequest(
@@ -981,6 +855,235 @@ async def handle_email(
     )
 
     await reply_to_email(request)
+
+
+# async def handle_email(
+#     body: str,
+#     influencer_email_address: str,
+#     influencer_name: str,
+#     marketer_email_address: str,
+#     marketer_name: str,
+#     subject: str,
+#     id: str,
+#     thread_id: str
+# ):
+#     if len(influencer_name) == 0:
+#         influencer_name = influencer_email_address.split('@')[0].capitalize()
+#     marketer_name = marketer_name.replace("ChubbyGroup", "").replace("Chubby Group", "")
+
+#     body = re.sub(MENU_PATTERN, "", body)
+#     normalized_body = " ".join(body.casefold().split())
+
+#     variants = {
+#         "full_email": normalized_body,
+#         "last_response": normalized_body,
+#         "truncated_email": normalized_body,
+#     }
+#     restaurants = get_restaurants()
+
+#     VALID_LOCATIONS = [r['name'] for r in restaurants] + list(set([r['location'] for r in restaurants])) 
+#     VALID_INTENTS = VALID_LOCATIONS + [ "Compensation", "Posting Requirements", "Ambiguous"]
+
+#     # A tiny few-shot set to anchor the model
+#     FEW_SHOT_EXAMPLES = [
+#         {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
+#         "intent": "Chubby Curry – Covina"},
+#         {"email": "Hi—I’d love to go to Chubby Curry Covina!", 
+#         "intent": "Los Angeles, CA"},
+#         {"email": "I only work with paid collaboration / do i get commission? / Are you offering paid posts or just the meal? / flat fee", 
+#         "intent": "Compensation"},
+#         {"email": "Do I need to post on both TikTok and Instagram? Can I just post a story", 
+#         "intent": "Posting Requirements"},
+#         {"email": "I'd love to work with you, does 5pm on Thursday work? How many guests can I bring?", 
+#         "intent": "Ambiguous"}
+#     ]
+
+#     intents = []
+#     for name, text in variants.items():
+#         # rebuild the user message each time with the new email text
+#         user_payload = json.dumps({
+#             "email": text,
+#             "valid_intents": VALID_INTENTS,
+#             "examples": FEW_SHOT_EXAMPLES
+#         }, indent=2)
+
+#         messages = [
+#             {
+#                 "role": "system",
+#                 "content": (
+#                     "You are an intent classifier for influencer email replies.\n"
+#                     "Your task is to read the email content and classify it into **one** of the provided valid intents.\n"
+#                     "\n"
+#                     "Valid intents may be:\n"
+#                     "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
+#                     "- Preferred locations (e.g., 'Los Angeles, CA')\n"
+#                     "- General categories like 'Compensation', 'Posting Requirements', or 'Ambiguous'\n"
+#                     "\n"
+#                     "**Return ONLY a JSON object in this format:**\n"
+#                     "{\"intent\": \"<one of the valid intents>\"}\n"
+#                     "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
+#                     "If the intent is unclear or not in the list, return: {\"intent\": \"Ambiguous\"}"
+#                 )
+#             },
+#             {
+#                 "role": "user",
+#                 "content": user_payload
+#             }
+#         ]
+
+#         resp, _ = gpt_ops_module.call_gpt_openai(
+#             messages,
+#             model="gpt-4.1-mini",
+#             temperature=0,
+#             max_tokens=20
+#         )
+
+#         print("GPT raw response:", resp)
+
+#         intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
+#         guess = get_close_matches(intent, VALID_INTENTS, n=1, cutoff=0.6)
+#         intent = guess[0] if guess else "Ambiguous"
+#         intents.append(intent)
+
+#     # majority vote
+#     counts = Counter(intents)
+#     most_common, freq = counts.most_common(1)[0]
+#     if freq >= 2:
+#         intent = most_common
+#     else:
+#         intent = "Ambiguous"
+
+#     request = LabelModificationRequest(email_id=id, new_label=intent)
+#     await modify_email_label(request)
+
+#     RESTAURANT_API_URL = "http://localhost:3000"
+
+#     async def talk_to_restaurant_backend(restaurant_name):
+#         url = RESTAURANT_API_URL + "/api/chubby/data"
+#         payload = {
+#             "email": influencer_email_address,
+#             "location": restaurant_name,  
+#         }
+#         response = requests.post(url, json=payload)
+#         if response.status_code != 201:
+#             print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
+#             return
+        
+#         id = response.json()['id']
+#         url = RESTAURANT_API_URL + f"/api/chubby/data/{id}/status"
+#         payload = {
+#             "statusType": "interested",
+#             "newStatus": "pending"
+#         }
+#         response = requests.put(url, json=payload)
+#         if response.status_code != 201:
+#             print(f"Failed to post data for {restaurant_name}. Status: {response.status_code}, Response: {response.text}")
+#             return
+        
+#         request = LabelModificationRequest(email_id=thread_id, new_label="finished")
+#         await modify_email_label(request)
+
+#     if "Ambiguous" in intent:
+#         # reply and ask for location details
+#         user_payload = json.dumps({
+#             "incoming_email": text,
+#             "valid_restaurants": VALID_LOCATIONS
+#         }, indent=2)
+
+#         messages = [
+#             {
+#                 "role": "system",
+#                 "content": (
+#                     "You are a marketer working on a affiliate outreach campaign."
+#                     "Your task is find out what specific restaurant / location would the influencer prefer. "
+#                     "You just got an ambiguous email from an influencer who did not provide a valid location and is instead asking for something else"
+#                     "Write a appropriate and concise response that tells them it varies by location and provide the valid restaurants / locations for them to choose again."
+#                     "Valid restaurants may be:\n"
+#                     "- Specific restaurants (e.g., 'Chubby Cattle BBQ Las Vegas')\n"
+#                     "- Preferred locations (e.g., 'Los Angeles, CA')\n"
+#                     "**Return ONLY a JSON object in this format:**\n"
+#                     "{\"email\": \"email body\"}\n"
+#                     "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
+#                 )
+#             },
+#             {
+#                 "role": "user",
+#                 "content": user_payload
+#             }
+#         ]
+
+#         resp, _ = gpt_ops_module.call_gpt_openai(
+#             messages,
+#             model="gpt-4.1-mini",
+#             temperature=0,
+#             max_tokens=20
+#         )
+
+#         response = resp.get("email", "").strip() if isinstance(resp, dict) else resp.strip()
+
+
+#     elif intent in set([r['location'] for r in restaurants]):
+#         lowest_price_choices = []
+#         lowest_price = float('inf')
+#         for r in restaurants:
+#             if r['location'] == intent and len(r['priceRange']) < lowest_price:
+#                 lowest_price_choices = [r['name']]
+#             if r['location'] == intent and len(r['priceRange']) == lowest_price:
+#                 lowest_price_choices.append(r['name'])
+#         # pick one of the lowest price choices
+#         intent = random.choice(lowest_price_choices)
+#         await talk_to_restaurant_backend(intent)
+#         # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
+#         response = f"""
+#             Hi {influencer_name},
+#             Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
+#             Best,
+#             {marketer_name}
+#             Chubby Group
+#         """
+
+#     elif intent in [r['name'] for r in restaurants]:    
+#         await talk_to_restaurant_backend(intent)
+#         # TODO: send email -> "someone from restaurant x will be in touch with you shortly"
+#         response = f"""
+#             Hi {influencer_name},
+#             Thank you for your interest in collaborating with us! A team memeber from our {intent} location will reach out to you shortly with more details. 
+#             Best,
+#             {marketer_name}
+#             Chubby Group
+#         """
+
+#     elif "Compensation" in intent:
+#         response = f"""
+#             Hi {influencer_name},
+#             As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for.
+#             While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals.
+#             Please let us know your preferred location / restaurant if you're interested in moving forward.
+#             Best,
+#             {marketer_name}
+#             Chubby Group
+#         """
+#     elif "Posting Requirements" in intent:
+#         # TODO: email template for posting requirements
+#         response = f"""
+#         Hi {influencer_name},
+#         Thanks for checking in! As part of the collaboration, we require one TikTok video and one Instagram Reel showcasing your experience.
+#         Please let us know your preferred location / restaurant if you're interested in moving forward.
+#         Best,  
+#         {marketer_name}  
+#         Chubby Group
+#         """
+
+#     request = EmailReplyRequest(
+#         reply_to_uuid=id,
+#         thread_id=thread_id,
+#         subject=subject,
+#         body={"text": response},
+#         eaccount=marketer_email_address
+#     )
+
+#     await reply_to_email(request)
+
 
 # async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
 async def auto_reply_process(campaign_id: str):
