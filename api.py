@@ -774,10 +774,8 @@ async def handle_email(
 
     variants = {
         "full_email": normalized_body,
-        "last_response": normalized_body,
-        "truncated_email": normalized_body,
     }
-    intents = []
+
     for name, text in variants.items():
         # rebuild the user message each time with the new email text
         user_payload = json.dumps({
@@ -816,15 +814,6 @@ async def handle_email(
         print("GPT raw response:", resp)
 
         intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
-        intents.append(intent)
-
-    # majority vote
-    counts = Counter(intents)
-    most_common, freq = counts.most_common(1)[0]
-    if freq >= 2:
-        intent = most_common
-    else:
-        intent = "Ambiguous"
 
     request = LabelModificationRequest(email_id=id, new_label=intent)
     await modify_email_label(request)

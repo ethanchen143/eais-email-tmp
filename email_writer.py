@@ -25,7 +25,7 @@ leads_collection = db["leads"]
 
 class GptOperations:
     max_tokens = 2000
-    def __init__(self, model="gpt-4.1-mini"):
+    def __init__(self, model="gpt-4o-mini"):
         self.model = model
         self.encoding = tiktoken.get_encoding("cl100k_base")
 
@@ -96,14 +96,14 @@ class GptOperations:
 
 class EmailWriter:
     def __init__(self):
-        self.gpt_ops = GptOperations(model="gpt-4.1-mini")
+        self.gpt_ops = GptOperations(model="gpt-4o-mini")
         self.type = type
 
     def generate_pitch(self,username,name,bio,desc,email_template):
         generate_pitch_prompt_for_gpt = copy.deepcopy(generate_pitch_prompt).format(
             username=username,name=name,bio=bio,desc=desc,email=email_template
         )
-        pitch_response_full_email, status = self.gpt_ops.call_gpt_openai_json(prompt=generate_pitch_prompt_for_gpt,model="gpt-4.1-mini")
+        pitch_response_full_email, status = self.gpt_ops.call_gpt_openai_json(prompt=generate_pitch_prompt_for_gpt,model="gpt-4o-mini")
         return pitch_response_full_email
 
     def generate_email(self, campaign_id, email_template):
