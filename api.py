@@ -107,7 +107,7 @@ async def get_product_info(
         # Call the GPT model (reusing your existing module)
         response, status = gpt_ops_module.call_gpt_openai_json(
             prompt=product_info_prompt,
-            model="gpt-4.1-mini"
+            model="gpt-4o-mini"
         )
         
         # Try to extract valid JSON from the response regardless of format
@@ -356,7 +356,7 @@ def extract_restaurant_labels(influencer_response):
     # print(prompt)
     
     response = client.chat.completions.create(  
-        model="gpt-4.1-mini", 
+        model="gpt-4o-mini", 
         messages=[
             {"role": "system", "content": "You are a helpful assistant that extracts restaurant preferences from text."},
             {"role": "user", "content": prompt}
@@ -806,7 +806,7 @@ async def handle_email(
 
         resp, _ = gpt_ops_module.call_gpt_openai(
             messages,
-            model="gpt-4.1-mini",
+            model="gpt-4o-mini",
             temperature=0,
             max_tokens=20
         )
@@ -817,6 +817,11 @@ async def handle_email(
 
     request = LabelModificationRequest(email_id=id, new_label=intent)
     await modify_email_label(request)
+
+    print("Intent:", resp)
+
+    if intent not in ["Interested", "Not Interested", "Ambiguous"]:
+        intent = "Interested"
 
     if "Ambiguous" in intent:
         # do nothing
@@ -1003,7 +1008,7 @@ async def handle_email(
 
 #         resp, _ = gpt_ops_module.call_gpt_openai(
 #             messages,
-#             model="gpt-4.1-mini",
+#             model="gpt-4o-mini",
 #             temperature=0,
 #             max_tokens=20
 #         )
@@ -1120,7 +1125,7 @@ async def auto_reply_process(campaign_id: str):
             except Exception as handle_err:
                 print(f"Unexpected error handling email {email.get('id', 'N/A')} for {campaign_id}: {handle_err}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(600)
 
 active_tasks = {}
 
@@ -1136,7 +1141,7 @@ async def set_auto_reply(campaign_id: str = Form(...)):
     return {"status": "Success", "message": f"Auto Reply started for Campaign {campaign_id}"}
 
 @app.post("/stop_auto_reply/")
-async def set_auto_reply(campaign_id: str = Form(...)):
+async def stop_auto_reply(campaign_id: str = Form(...)):
     task = active_tasks.pop(campaign_id, None)
     if task:
         task.cancel()
