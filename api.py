@@ -818,7 +818,7 @@ async def handle_email(
     request = LabelModificationRequest(email_id=id, new_label=intent)
     await modify_email_label(request)
 
-    print("Intent:", resp)
+    print("Intent:", intent)
 
     if intent not in ["Interested", "Not Interested", "Ambiguous"]:
         intent = "Interested"
@@ -832,7 +832,7 @@ async def handle_email(
         return
 
     elif intent == "Interested":
-        response = """
+        response = f"""
         Hi {influencer_name},
         Thank you so much for your interest, so excited that you’d like to collaborate with us! I’ve already contacted the manager of this location to check their availability for collaboration reservation. I’ll get back to you with the details as soon as I hear from them.
 
@@ -1100,13 +1100,16 @@ async def auto_reply_process(campaign_id: str):
                 to_address_list = email.get('to_address_json', [])
 
                 if not all([email_id, thread_id, from_address_list, to_address_list, body]):
+                     print(email_id, thread_id, from_address_list, to_address_list, body)
                      print(f"Skipping email due to missing critical info: {email.get('id', 'N/A')}")
                      continue
                 
                 # avoid sending twice
                 label = get_email_status_with_id(email_id)
                 thread_label = get_email_status_with_id(thread_id)
-                if label == "nope" or thread_label == "finished":
+                if label == "Interested" or thread_label == "Not Interested" or thread_label == "Ambiguous":
+                    continue
+                if "I’ll get back to you with the details as soon as I hear from them" in body:
                     continue
 
                 influencer_email_address = from_address_list[0].get('address')
