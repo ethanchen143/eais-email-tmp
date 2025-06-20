@@ -319,52 +319,39 @@ def save_cache(cache):
         json.dump(cache, f, indent=2)
 
 def get_restaurants():
-    response = requests.get("https://backend.creatorain.com/", verify=False).json()
+    try:
+        response = requests.get("https://backend.creatorain.com/", verify=False, timeout=10)
+        response.raise_for_status()  # Raises an HTTPError for bad responses
+        
+        data = response.json()
+        
+        # expects the response to be a dict with a 'restaurants' key
+        restaurants = data.get("restaurants")
+        if not isinstance(restaurants, list):
+            print(f"Warning: Expected a list of restaurants, but got: {data}")
+            return get_fallback_restaurants()
 
-    # expects the response to be a dict with a 'restaurants' key
-    restaurants = response.get("restaurants")
-    if not isinstance(restaurants, list):
-        raise ValueError("Expected a list of restaurants, but got:", response)
+        return [
+            {"name": r["name"], "location": r["location"], "priceRange": r["priceRange"]}
+            for r in restaurants
+        ]
+    
+    except (requests.exceptions.RequestException, requests.exceptions.JSONDecodeError, ValueError) as e:
+        print(f"Error fetching restaurants from API: {e}")
+        print("Using fallback restaurant data")
+        return get_fallback_restaurants()
 
+def get_fallback_restaurants():
+    """Fallback restaurant data when the API is unavailable"""
     return [
-        {"name": r["name"], "location": r["location"], "priceRange": r["priceRange"]}
-        for r in restaurants
+        {"name": "Chubby Cattle BBQ Las Vegas", "location": "Las Vegas, NV", "priceRange": "$$"},
+        {"name": "Chubby Cattle BBQ Los Angeles", "location": "Los Angeles, CA", "priceRange": "$$"},
+        {"name": "Chubby Curry Covina", "location": "Los Angeles, CA", "priceRange": "$"},
+        {"name": "Chubby Noodle House", "location": "Los Angeles, CA", "priceRange": "$"},
+        {"name": "Chubby Steakhouse", "location": "Houston, TX", "priceRange": "$$$"},
     ]
 
-def extract_restaurant_labels(influencer_response):
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    
-    restaurants = get_restaurants()
-    prompt = f"""
-    Based on the influencer's response below, identify which restaurant they want to work with.
-    Handle misspellings, and variations in naming.
-
-    Known restaurants:
-    {';'.join([r['name'] for r in restaurants])}
-    
-    If an influencer did not mention a specific restaurant but mentioned a broader geolocation, return one of the following locations:
-    {';'.join(set([r['location'] for r in restaurants]))}
-
-    If nothing can be inferred, or if it's unclear, only return "Ambiguous".
-
-    Return ONLY a string with the standardized names from the Chubby Group, e.g. "Chubby Cattle BBQ Las Vegas" or location, e.g. "Los Angeles, CA".
-    
-    INFLUENCER RESPONSE:
-    {influencer_response}
-    """
-
-    # print(prompt)
-    
-    response = client.chat.completions.create(  
-        model="gpt-4o-mini", 
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that extracts restaurant preferences from text."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3
-    )
-    
-    return response.choices[0].message.content.strip()
+# Removed extract_restaurant_labels function - no longer using restaurant backend
 
 # generate label
 def get_email_status(email_id, body_content, cache=None):
@@ -374,14 +361,24 @@ def get_email_status(email_id, body_content, cache=None):
     # Check if the email ID is in the cache
     if str(email_id) in cache:
         return cache[str(email_id)]
-    print('Generating labels with gpt')
-    # If not in cache, process the email
-    influencer_response = re.sub(MENU_PATTERN, "", body_content)
-    restaurant_label = extract_restaurant_labels(influencer_response)
+    
+    # Simplified status without restaurant backend calls
+    print('Generating simple status label')
+    
+    # Simple keyword-based classification without external API calls
+    body_lower = body_content.lower()
+    
+    if any(word in body_lower for word in ['interested', 'yes', 'love to', 'sounds good', 'great', 'awesome']):
+        status = "Interested"
+    elif any(word in body_lower for word in ['not interested', 'no thanks', 'pass', 'decline']):
+        status = "Not Interested"
+    else:
+        status = "Pending Review"
+    
     # Store in cache
-    cache[str(email_id)] = restaurant_label
+    cache[str(email_id)] = status
     save_cache(cache)
-    return restaurant_label
+    return status
 
 def get_email_status_with_id(email_id):
     """Get the email status, either from cache or by processing it"""
