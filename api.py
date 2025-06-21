@@ -813,12 +813,24 @@ async def handle_email(
             max_tokens=20
         )
 
-        intent = resp.get("intent", "").strip() if isinstance(resp, dict) else resp.strip()
+        # Parse the intent from the response
+        if isinstance(resp, dict):
+            intent = resp.get("intent", "").strip()
+        elif isinstance(resp, str):
+            try:
+                # Try to parse as JSON first
+                parsed_resp = json.loads(resp)
+                intent = parsed_resp.get("intent", "").strip()
+            except json.JSONDecodeError:
+                # If JSON parsing fails, use the string as-is
+                intent = resp.strip()
+        else:
+            intent = str(resp).strip()
 
     request = LabelModificationRequest(email_id=thread_id, new_label=intent)
     await modify_email_label(request)
 
-    print("Handling email:", body[:500])
+    print("Handling email:", body[:30])
     print("Intent:", intent)
 
     if intent not in ["Interested", "Compensation", "Not Interested", "Ambiguous"]:
