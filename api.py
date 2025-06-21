@@ -818,7 +818,7 @@ async def handle_email(
     request = LabelModificationRequest(email_id=thread_id, new_label=intent)
     await modify_email_label(request)
 
-    print("Handling email:", body)
+    print("Handling email:", body[:500])
     print("Intent:", intent)
 
     if intent not in ["Interested", "Compensation", "Not Interested", "Ambiguous"]:
@@ -861,6 +861,9 @@ async def handle_email(
     )
 
     await reply_to_email(request)
+
+    print("email sent:", response)
+    print("--------------------------------")
 
 
 # async def auto_reply_process(campaign_id: str, intents: List[str], responses: List[str]):
