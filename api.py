@@ -907,15 +907,15 @@ async def auto_reply_process(campaign_id: str):
                 # label = get_email_status_with_id(email_id)
                 thread_label = get_email_status_with_id(thread_id)
                 if thread_label in ["Interested", "Compensation","Not Interested", "Ambiguous"]:
-                    print(f"Skipping email due to already replied: {body}")
+                    print(f"Skipping email due to already replied (label check): {body[:50]}")
                     continue
 
                 if "I’ve already contacted the manager of this location to check their availability for collaboration reservation" in body:
-                    print(f"Skipping email due to already replied: {body}")
+                    print(f"Skipping email due to already replied (auto check): {body[:50]}")
                     continue
 
                 if "Looking forward to talk to you soon!" in body:
-                    print(f"Skipping email because already manually replied: {body}")
+                    print(f"Skipping email because already manually replied (manual check): {body[:50]}")
                     continue
 
                 influencer_email_address = from_address_list[0].get('address')
