@@ -783,17 +783,20 @@ async def handle_email(
             {
                 "role": "system",
                 "content": (
-                    "You are an intent classifier for influencer email replies.\n"
+                    "You are an intent classifier for influencer email replies of a restaurant collaboration campaign. You have sent an invitation email to this influencer.\n"
                     "Your task is to read the email content and classify it into **one** of the provided valid intents.\n"
                     "\n"
                     "Valid intents:\n"
                     "- Interested\n"
+                    "- Interested No Location\n"
                     "- Compensation\n"
+
                     "- Not Interested\n"
 
-                    "The interested intent is for direct interest only. If you return with 'interested', we are going to send 'Thank you so much for your interest, so excited that you’d like to collaborate with us! I’ve already contacted the manager of this location to check their availability for collaboration reservation. I’ll get back to you with the details as soon as I hear from them.'\n"
-                    "Compensation intent should encompass anything to do with payments, commission, or compensation. If you return with 'compensation', we are going to send 'As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for. While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals. Please let us know your preferred location / restaurant if you're interested in moving forward.'\n"
-
+                    "The interested intent is for direct interest only also they need to mention the location. If you return with 'interested', we are going to send 'Thank you so much for your interest, so excited that you’d like to collaborate with us! I’ve already contacted the manager of this location to check their availability for collaboration reservation. I’ll get back to you with the details as soon as I hear from them.'\n"
+                    "The interested no location intent is for direct interest only but they don't need to mention the location. If you return with 'interested no location', we are going to send 'Thank you so much for your interest—so excited that you’d like to collaborate with us! Before we move forward, could you let us know which city or location you're based in (or where you'd like to collaborate)? That’ll help us coordinate with the right restaurant manager and check availability for your reservation.'\n"
+                    "Compensation intent should encompass anything to do with payments, commission, or compensation, like mentioning rate, dollar sign, money amount, etc. If you return with 'compensation', we are going to send 'As compensation for your authentic coverage, we'd love to offer you and a guest a complimentary fine dining experience, typically valued between $120 and $180. We’re confident this will give you plenty of great content while experiencing firsthand the outstanding cuisine, ambiance, and service we’re known for. While additional monetary compensation isn't available for this particular collaboration, we hope this dining experience aligns well with your content style and audience engagement goals. Please let us know your preferred location / restaurant if you're interested in moving forward.'\n"
+                    
                     "**Return ONLY a JSON object in this format:**\n"
                     "{\"intent\": \"<one of the valid intents>\"}\n"
                     "Do not return explanations, extra text, or formatting. No bullet points, no summaries — just the JSON.\n"
@@ -850,6 +853,15 @@ async def handle_email(
         Thank you so much for your interest, so excited that you’d like to collaborate with us! I’ve already contacted the manager of this location to check their availability for collaboration reservation. I’ll get back to you with the details as soon as I hear from them.
 
         Talk to you very soon!
+        Chubby Group Collaboration Team
+        """
+
+    elif intent == "Interested No Location":
+        response = f"""
+        Hi {influencer_name},
+        Thank you so much for your interest—so excited that you’d like to collaborate with us! Before we move forward, could you let us know which city or location you're based in (or where you'd like to collaborate)? That’ll help us coordinate with the right restaurant manager and check availability for your reservation.
+
+        Looking forward to your reply!
         Chubby Group Collaboration Team
         """
 
