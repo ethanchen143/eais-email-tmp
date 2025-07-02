@@ -88,6 +88,20 @@ async def get_keywords(
         raise HTTPException(status_code=400, detail="Response is not a list of strings")
     return {"keywords": keywords}
 
+@app.get("/get_aigen_campaign_name")
+async def get_aigen_campaign_name(
+    product_url: str = Query(...)
+):
+    ai_gen_campaignname = copy.deepcopy(get_aigen_campaign_name_prompt).format(product=product_url)
+    response, status = gpt_ops_module.call_gpt_openai_json(prompt=ai_gen_campaignname, model="gpt-4o-mini")
+    print(response)
+    print(status)
+    # Only accept a plain string as the campaign name
+    if not isinstance(response, str) or not response.strip():
+        raise HTTPException(status_code=400, detail="Response is not a valid campaign name string")
+    return {"campaign_name": response.strip()}
+
+
 from constants import get_product_info_prompt
 @app.get("/get_product_info")
 async def get_product_info(
