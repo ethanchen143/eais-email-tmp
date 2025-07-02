@@ -574,6 +574,13 @@ Return ONLY a JSON-formatted list of strings, with no explanations or extra text
 ]
 """
 
+
+get_aigen_campaign_name_prompt = """
+    Generate a campaign name for {product}. The campaign name should be 3 words long
+    and the first word has to be the company name.
+    Return ONLY the 3 word string and nothing else.
+"""
+
 get_product_info_prompt = """
 ### Role and Task:
 You are a seasoned marketing strategist specializing in product analysis. Extract key product information from the provided brand and product pages.

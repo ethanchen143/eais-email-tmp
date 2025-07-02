@@ -10,7 +10,7 @@ import os
 import copy
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from constants import get_keywords_prompt
+from constants import get_keywords_prompt, get_aigen_campaign_name_prompt
 from pymongo import MongoClient
 import asyncio
 from fastapi import Query, HTTPException
