@@ -576,9 +576,11 @@ Return ONLY a JSON-formatted list of strings, with no explanations or extra text
 
 
 get_aigen_campaign_name_prompt = """
-    Generate a campaign name for {product}. The campaign name should be 3 words long
-    and the first word has to be the company name.
-    Return ONLY the 3 word string and nothing else.
+Generate a 3-word marketing campaign name for the product: {product}.
+- The first word must be the company name.
+- The name should be catchy, emotionally appealing, and relevant to the product's value.
+- Avoid generic or overused phrases.
+- Return ONLY the 3-word name as a plain string. No punctuation, no explanation.
 """
 
 get_product_info_prompt = """
