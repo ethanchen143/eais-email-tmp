@@ -556,17 +556,27 @@ Location: RowlandHeights
 }
 
 get_keywords_prompt = """
-### Role and Task:
-You are a seasoned marketing strategist specializing in influencer partnerships. Identify 10-15 high-value keywords relevant to the brand/product.
+Prompt #1:
+You are a seasoned marketing strategist specializing in influencer partnerships. 
+Given the brand and product pages, identify the very specific industry this product belongs to, 
+then list 50 one-word keywords that are unique to that industry and no other industry.
 
-### Brand Page: 
+Brand Page:
 {brand}
 
-### Product Page:
-{product} 
+Product Page:
+{product}
 
-### Output Format:
-Return ONLY a JSON-formatted list of strings, with no explanations or extra text. Example:
+Prompt #2:
+You are a marketing assistant for a premium culinary brand. 
+Using only the 50 keywords from Prompt #1 (and not the brand/product links), 
+generate 30 new one-word keywords for very specific, highly relevant products matching the same theme.
+These keywords still have to belong to the same industry and no other industry. Evaluate each keyword carefully for that
+condition. No repeated keywords.
+
+Output Format:
+Return ONLY a JSON-formatted list of 80 string one-word keywords, 50 from the first prompt and another 30 from
+the second prompt with no explanations or extra text. Example:
 [
     "keyword1",
     "keyword2",
