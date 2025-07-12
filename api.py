@@ -79,14 +79,29 @@ async def get_keywords(
     get_keywords_prompt_for_ds = copy.deepcopy(get_keywords_prompt).format(
         brand = brand_page, product = product_page
     )
-    response, status = gpt_ops_module.call_gpt_openai_json(prompt=get_keywords_prompt_for_ds,model="gpt-4o-mini")
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    completion = client.chat.completions.create(
+        model="o4-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful marketing assistant that outputs JSON."},
+            {"role": "user",   "content": get_keywords_prompt_for_ds}
+        ]
+    )
+
+     # 4. Extract and parse the JSON response
+    text = completion.choices[0].message.content
     try:
-        keywords = json.loads(response) if isinstance(response, str) else response
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="GPT returned invalid JSON")
-    if not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords):
-        raise HTTPException(status_code=400, detail="Response is not a list of strings")
+        keywords = json.loads(text)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail=f"GPT returned invalid JSON: {text}")
+
+    # 5. Validate
+    if not (isinstance(keywords, list) and all(isinstance(k, str) for k in keywords)):
+        raise HTTPException(status_code=400, detail="Response is not a JSON array of strings")
+
     return {"keywords": keywords}
+
 
 @app.get("/get_aigen_campaign_name")
 async def get_aigen_campaign_name(
